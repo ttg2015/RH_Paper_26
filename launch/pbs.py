@@ -4,6 +4,8 @@ from pathlib import Path
 
 from tpl_mll.config import load, config_hash
 
+REPO = Path(__file__).resolve().parents[1]
+
 TEMPLATE = """#!/bin/bash -l
 #PBS -N {tag}
 #PBS -A {project}
@@ -24,6 +26,7 @@ export PAPER26_CONFIG={config}
 
 echo "=== START {tag} host=$(hostname) time=$(date) ==="
 {command}
+cd {repo} && {python} -m launch stamp {stamp_args}
 echo "=== DONE {tag} time=$(date) ==="
 """
 
@@ -49,7 +52,17 @@ def render(job, git=None):
         tag=job.tag, project=hpc["project"], queue=hpc["queue"],
         walltime=res["walltime"], select=res["select"],
         log_dir=load("paths")["log_dir"].rstrip("/"), conda_env=hpc["conda_env"],
-        git=git or git_hash(), config=config_hash(), command=cmd)
+        git=git or git_hash(), config=config_hash(), command=cmd,
+        repo=str(REPO).replace(" ", "\\ "), python=hpc["python"], stamp_args=stamp_args(job))
+
+
+def stamp_args(job):
+    """Arguments for `launch stamp` that identify this job's outputs."""
+    s = f"--stage {job.stage.key}"
+    for k in ("year", "month", "event"):
+        if getattr(job, k) is not None:
+            s += f" --{k} {getattr(job, k)}"
+    return s
 
 
 def write_all(jobs, out_dir):

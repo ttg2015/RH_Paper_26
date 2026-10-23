@@ -235,8 +235,14 @@ def verdict(r):
 
 # --- Driver -----------------------------------------------------------------------
 def run(stage_keys, years, events, out_dir, work=None, log_dir=None, script_dir=None,
-        zs_file=None, sample=50, seed=0):
-    """Check every expected file; open a random sample of `sample` per stage (None = all)."""
+        zs_file=None, sample=50, seed=0, apply=False, git="nogit"):
+    """Check every expected file; open a random sample of `sample` per stage (None = all).
+
+    With apply=True (needs sample=None, so every file was opened) the files whose verdict
+    starts with "adopt" get provenance attrs, so `launch run` treats them as done.
+    """
+    if apply and sample is not None:
+        raise ValueError("--apply needs --sample all: every file must be opened before stamping")
     paths = load("paths")
     work = Path(work or paths["work"])
     log_dir = Path(log_dir or paths["log_dir"])
@@ -262,5 +268,17 @@ def run(stage_keys, years, events, out_dir, work=None, log_dir=None, script_dir=
     size_checks(sizes)
     for r in results:
         r.verdict = verdict(r)
+    stamped = 0
+    if apply:
+        from .provenance import stamp
+        for r in results:
+            if r.verdict.startswith("adopt"):
+                note = "E07: z_LCL stored above sea level" if r.verdict == "adopt-with-correction" else ""
+                stamp(r.path, r.stage, git, how=r.verdict, note=note)
+                stamped += 1
     from .adopt_report import write_report
-    return write_report(results, sizes, evidence, Path(out_dir))
+    report = write_report(results, sizes, evidence, Path(out_dir))
+    if apply:
+        with open(report, "a") as f:
+            f.write(f"\n## Applied\nStamped {stamped} files as adopted.\n")
+    return report
