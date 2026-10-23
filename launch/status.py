@@ -42,7 +42,9 @@ def board(data):
          f"{'stage':12} {'done':>9}  {'progress':{BAR + 5}} " + " ".join(f"{k:>7}" for k in STATES[1:])]
     for key, st in data["stages"].items():
         frac = st["done"] / st["total"] if st["total"] else 0
-        bar = "█" * round(frac * BAR) + "░" * (BAR - round(frac * BAR))
+        n_done = round(frac * BAR)
+        n_old = round((st["done"] + st["legacy"]) / st["total"] * BAR) - n_done if st["total"] else 0
+        bar = "█" * n_done + "▒" * n_old + "░" * (BAR - n_done - n_old)
         L.append(f"{key + ' ' + st['name']:12} {st['done']:>4}/{st['total']:<4}  {bar} {frac:4.0%} "
                  + " ".join(f"{st[k]:>7}" for k in STATES[1:]))
     failed = [j for st in data["stages"].values() for j in st["jobs"] if j["state"] == "failed"]
@@ -50,7 +52,8 @@ def board(data):
         L.append(f"⚠ {len(failed)} failed: " + ", ".join(j["tag"] for j in failed[:8])
                  + (" …" if len(failed) > 8 else "") + "   (status --failed for logs)")
     if any(st["legacy"] for st in data["stages"].values()):
-        L.append("? legacy = outputs with no provenance; run `launch adopt` to check and stamp them")
+        L.append("▒ legacy = outputs that exist but have no provenance yet (made before the launch bay); "
+                 "`launch adopt --apply` checks and stamps them")
     if any(st["stale"] for st in data["stages"].values()):
         L.append("~ stale = made by older code/config; the next run archives and rebuilds them")
     return "\n".join(L)

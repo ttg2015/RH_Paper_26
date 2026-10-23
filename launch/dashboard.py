@@ -29,7 +29,9 @@ POS = {"a": (0, 1), "b": (1, 1), "c0": (2, 1), "c1": (3, 1), "c2": (4, 1),
 def refresh(years=None):
     """Run `launch status` (one qstat call) and load the result."""
     cmd = [sys.executable, "-m", "launch", "status"] + (["--years", years] if years else [])
-    subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=600)
+    r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=1800)
+    if r.returncode != 0:
+        raise RuntimeError(f"launch status failed:\n{r.stderr[-2000:]}")
     return load()
 
 
@@ -44,16 +46,22 @@ def draw_map(data, ax=None):
         st = data["stages"].get(key)
         state = worst(st) if st else "missing"
         frac = st["done"] / st["total"] if st and st["total"] else 0
+        frac_old = st["legacy"] / st["total"] if st and st["total"] else 0
         ax.add_patch(FancyBboxPatch((x - 0.4, y - 0.3), 0.8, 0.6, boxstyle="round,pad=0.02",
                                     fc=COLOR[state], ec="#37474f",
                                     lw=2.5 if state == "failed" else 1,
                                     ls="--" if state == "missing" else "-"))
         ax.add_patch(FancyBboxPatch((x - 0.35, y - 0.25), 0.7 * frac, 0.06, boxstyle="square,pad=0",
                                     fc="#2e7d32", ec="none"))
+        ax.add_patch(FancyBboxPatch((x - 0.35 + 0.7 * frac, y - 0.25), 0.7 * frac_old, 0.06,
+                                    boxstyle="square,pad=0", fc="#ef6c00", ec="none"))
         label = f"{key} {STAGES[key].name}"
-        sub = f"{st['done']}/{st['total']}" if st else "not built"
+        sub = f"{st['done']}/{st['total']} done" if st else "not built"
+        if st and st["legacy"]:
+            ax.text(x, y - 0.17, f"+{st['legacy']} legacy", ha="center", va="center", fontsize=6.5,
+                    color="#bf360c")
         ax.text(x, y + 0.08, label, ha="center", va="center", fontsize=9, weight="bold")
-        ax.text(x, y - 0.1, sub, ha="center", va="center", fontsize=8)
+        ax.text(x, y - 0.04, sub, ha="center", va="center", fontsize=8)
     for key, stage in STAGES.items():
         for dep in stage.depends_on:
             (x0, y0), (x1, y1) = POS[dep], POS[key]
@@ -123,10 +131,11 @@ def app(years=None):
         data = refresh(years)
         state["data"] = data
         bars.children = [W.HBox([W.Label(f"{k} {st['name']}", layout=W.Layout(width="110px")),
-                                 W.IntProgress(value=st["done"], max=max(st["total"], 1),
+                                 W.IntProgress(value=st["done"] + st["legacy"], max=max(st["total"], 1),
                                                bar_style="danger" if st["failed"] else
+                                               "warning" if st["legacy"] else
                                                "success" if st["done"] == st["total"] else "info"),
-                                 W.Label(f"{st['done']}/{st['total']}  " + "  ".join(
+                                 W.Label(f"{st['done'] + st['legacy']}/{st['total']} exist  " + "  ".join(
                                      f"{s} {st[s]}" for s in ORDER[1:] if st[s]))])
                          for k, st in data["stages"].items()]
         with out_map:
