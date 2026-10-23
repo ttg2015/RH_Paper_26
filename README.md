@@ -10,6 +10,7 @@ The pipeline map, the error notes and the design plans are in the Obsidian vault
 | `src/tpl_mll/` | Shared physics: `thermo.py` (q_sat, MSE, Romps LCL), `corrections.py` (fixes for legacy outputs) |
 | `pipeline/` | Stages a → f, ported one at a time from `legacy/` |
 | `launch/` | The launch bay: `python -m launch ...` |
+| `docs/` | `FILE_MAP.md` (where outputs and the SAM engine are) and `SETUP_AND_DATA.md` (setup for a collaborator, what is not in git) |
 | `figures/` | One notebook per paper figure, reading only pipeline outputs |
 | `tests/` | `python3 -m unittest discover -s tests -t .` |
 | `legacy/` | Copies of the old scripts (not in git) |
