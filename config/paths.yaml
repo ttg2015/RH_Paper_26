@@ -19,6 +19,7 @@ outputs:            # relative to work
   annmax_MSE2m: AnnMax/MSE2m/
   profiles: Profiles/
   profiles_intermediate: Profiles/intermediate/
+  masks: Profiles/masks/
   derived: Profiles/derived/
   rh_binned: rh_binned/
   convective: Convective/

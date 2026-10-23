@@ -2,6 +2,8 @@
 
     python -m launch run --stages d e --years 1980-1981 --dry-run
     python -m launch list
+    python -m launch adopt --stages b d e --years 1980-2019   # read-only check of existing outputs
+    python -m launch adopt --demo                             # toy good/bad files, shows every check
 
 Only --dry-run is implemented so far: it writes PBS files and submits nothing.
 Preflight, archive, submit and status come next (see pipeline-map/Planned/Launch Bay).
@@ -48,6 +50,20 @@ def cmd_run(args):
         print(f"  skipped {len(missing)} jobs: stage {', '.join(skipped)} not built yet")
 
 
+def cmd_adopt(args):
+    if args.demo:
+        from .adopt_demo import run as demo
+        report = demo(REPO / "runs" / "adopt_demo")
+    else:
+        from .adopt import run
+        stages = args.stages or [k for k in STAGES if k != "f"]
+        sample = None if args.sample == "all" else int(args.sample)
+        out = REPO / "runs" / f"adopt_{datetime.now():%Y%m%d_%H%M%S}"
+        report = run(stages, _years(args.years) if args.years else None, args.events, out,
+                     sample=sample)
+    print(f"Report: {report}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="python -m launch")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -58,6 +74,13 @@ def main(argv=None):
     r.add_argument("--events", nargs="+", choices=["T", "M"])
     r.add_argument("--dry-run", action="store_true")
     r.set_defaults(func=cmd_run)
+    a = sub.add_parser("adopt", help="read-only check of existing outputs")
+    a.add_argument("--stages", nargs="+")
+    a.add_argument("--years")
+    a.add_argument("--events", nargs="+", choices=["T", "M"])
+    a.add_argument("--sample", default="50", help="files opened per stage, or 'all'")
+    a.add_argument("--demo", action="store_true", help="run on toy good/bad files")
+    a.set_defaults(func=cmd_adopt)
     args = ap.parse_args(argv)
     args.func(args)
 

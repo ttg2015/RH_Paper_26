@@ -18,8 +18,10 @@ The pipeline map, the error notes and the design plans are in the Obsidian vault
 ```bash
 python -m launch list                                         # stages and their status
 python -m launch run --stages d e --years 1980-2019 --dry-run # write PBS files to runs/, submit nothing
+python -m launch adopt --stages b c2 d e --years 1980-2019   # read-only check of existing outputs → runs/adopt_*/adopt_report.md
+python -m launch adopt --demo                                 # toy files with planted faults; shows what each check catches
 ```
-Not built yet: `adopt` (check existing outputs), preflight, archive to `_old/`, submit with `afterok`, `status`, `dashboard.ipynb`.
+Not built yet: `adopt --apply` (stamp trusted files), preflight, archive to `_old/`, submit with `afterok`, `status`, `dashboard.ipynb`.
 Until a stage is ported, the launch bay runs its legacy script on GLADE with the old launcher's arguments.
 
 ## Setup on NCAR
