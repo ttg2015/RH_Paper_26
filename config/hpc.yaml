@@ -1,6 +1,6 @@
 # PBS settings. Ported from STAGE_CFG in !_Launcher.ipynb.
 project: UNYU0020
-queue: main
+queue: casper          # Casper batch queue (Derecho would be "main")
 conda_env: npl
 python: python
 
