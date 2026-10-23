@@ -1,7 +1,7 @@
 """Which code and config made an output file, stored as netCDF global attributes.
 
 A stage's *fingerprint* hashes everything that can change its numbers: the shared
-package (src/tpl_mll), the config files, and the stage's own script. Committing a README
+package (src/tpl_mll), config/analysis.yaml, and the stage's own script. Committing a README
 change therefore does not make outputs stale, but editing thermo.py or analysis.yaml does.
 """
 import hashlib
@@ -21,7 +21,8 @@ PREFIX = "paper26_"
 def fingerprint(stage_key):
     from .adopt import SCRIPT
     h = hashlib.sha1()
-    for p in sorted((REPO / "src" / "tpl_mll").glob("*.py")) + sorted(CONFIG_DIR.glob("*.yaml")):
+    # analysis.yaml only: paths.yaml and hpc.yaml (walltimes, queues) can't change results
+    for p in sorted((REPO / "src" / "tpl_mll").glob("*.py")) + [CONFIG_DIR / "analysis.yaml"]:
         h.update(p.read_bytes())
     port = REPO / "pipeline" / f"{stage_key}.py"
     script = port if port.exists() else Path(load("paths")["legacy_scripts"]) / SCRIPT.get(stage_key, "")

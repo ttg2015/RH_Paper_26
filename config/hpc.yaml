@@ -12,4 +12,4 @@ stages:
   c2: {walltime: "01:30:00", select: "select=1:ncpus=1:mem=32GB"}
   d:  {walltime: "00:45:00", select: "select=1:ncpus=1:mem=32GB"}
   e:  {walltime: "00:30:00", select: "select=1:ncpus=1:mem=32GB"}
-  f:  {walltime: "02:00:00", select: "select=1:ncpus=1:mem=64GB"}
+  f:  {walltime: "00:30:00", select: "select=1:ncpus=1:mem=64GB"}
