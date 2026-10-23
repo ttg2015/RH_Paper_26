@@ -1,0 +1,16 @@
+#!/bin/bash -l
+# Read-only quality check of every existing output (stages b–e, 1980–2019). Changes no data.
+# Submit from the repo folder:   qsub jobs/adopt_all.pbs
+# Report path is printed near the end of the log.
+#PBS -N adopt_all
+#PBS -A UNYU0020
+#PBS -q casper
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=1:mem=32GB
+#PBS -j oe
+#PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/adopt_all.log
+
+module load conda && conda activate npl
+cd "$PBS_O_WORKDIR"
+python -m launch adopt --stages b c0 c1 c2 d e --years 1980-2019 --sample all
+echo "=== DONE adopt_all"
