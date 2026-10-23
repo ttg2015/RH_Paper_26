@@ -125,6 +125,8 @@ def expected_files(job, work, years):
         return [(f"{e} {y}", d("profiles") / f"profiles_{e}_b{b:02d}_{y}.nc", PROFILE_VARS)]
     if k == "d":
         return [(f"{e} {y}", d("derived") / f"derived_{e}_b{b:02d}_{y}.nc", DERIVED_VARS)]
+    if k == "f":
+        return [(f"{e} {y}", d("ztop") / f"ztop_{e}_b{b:02d}_{y}.nc", ["p_top", "category", "E_total"])]
     if k == "e":
         return [(f"{y}", d("rh_binned") / f"rh_binned_b{b:02d}_{y}.nc", ["n_events"])]
     return []

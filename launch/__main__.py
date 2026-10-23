@@ -37,7 +37,7 @@ def _stages(keys):
 
 def cmd_list(_):
     for s in STAGES.values():
-        status = "legacy script" if s.legacy_cmd else "not built"
+        status = "ported" if s.port else "legacy script" if s.legacy_cmd else "not built"
         deps = ",".join(s.depends_on) or "-"
         print(f"{s.key:3} {s.name:9} grain={'×'.join(s.grain):18} after={deps:6} {status}")
 

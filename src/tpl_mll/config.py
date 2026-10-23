@@ -2,6 +2,7 @@
 from functools import lru_cache
 from pathlib import Path
 import hashlib
+import os
 
 import yaml
 
@@ -10,8 +11,12 @@ CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 
 @lru_cache(maxsize=None)
 def load(name):
-    """Return config/<name>.yaml as a dict, e.g. load("analysis")."""
-    with open(CONFIG_DIR / f"{name}.yaml") as f:
+    """Return config/<name>.yaml as a dict, e.g. load("analysis").
+
+    PAPER26_<NAME>=<file.yaml> (e.g. PAPER26_PATHS) swaps in another file, used by tests.
+    """
+    override = os.environ.get(f"PAPER26_{name.upper()}")
+    with open(override or CONFIG_DIR / f"{name}.yaml") as f:
         return yaml.safe_load(f)
 
 

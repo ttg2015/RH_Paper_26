@@ -6,7 +6,11 @@ with exactly the arguments the old !_Launcher used, so the PBS files can be diff
 from dataclasses import dataclass, field
 from itertools import product
 
+from pathlib import Path
+
 from tpl_mll.config import load
+
+REPO = Path(__file__).resolve().parents[1]
 
 
 @dataclass(frozen=True)
@@ -16,7 +20,7 @@ class Stage:
     grain: tuple                 # subset of ("year", "month", "event")
     depends_on: tuple = ()
     legacy_cmd: str = None       # format string; None = not built yet
-    port: str = None             # pipeline/ module once ported
+    port: str = None             # format string for pipeline/<script> once ported
 
 
 STAGES = {s.key: s for s in [
@@ -34,7 +38,8 @@ STAGES = {s.key: s for s in [
           legacy_cmd="d_Add_Derived.py {year} {event} --buffer {buffer}"),
     Stage("e", "rh_bins", ("year",), ("d",),
           legacy_cmd="e_RH_bins.py {year} --buffer {buffer}"),
-    Stage("f", "ztop", ("year", "event"), ("d",)),
+    Stage("f", "ztop", ("year", "event"), ("d",),
+          port="f.py {year} {event} --buffer {buffer}"),
 ]}
 
 
@@ -60,10 +65,13 @@ class Job:
 
     def command(self, python="python"):
         paths = load("paths")
-        if self.stage.legacy_cmd is None:
+        if self.stage.port:
+            script, fmt = str(REPO / "pipeline").replace(" ", "\\ "), self.stage.port
+        elif self.stage.legacy_cmd:
+            script, fmt = paths["legacy_scripts"].replace(" ", "\\ "), self.stage.legacy_cmd
+        else:
             return None
-        script = paths["legacy_scripts"].replace(" ", "\\ ")
-        args = self.stage.legacy_cmd.format(
+        args = fmt.format(
             year=self.year, month=self.month, event=self.event, buffer=self.buffer)
         return f"{python} {script}/{args}"
 

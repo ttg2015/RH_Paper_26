@@ -38,7 +38,7 @@ def plan(stage_keys, years=None, events=None, rebuild_legacy=False, **where):
         s.action = ACTION[s.state]
         if s.state == "legacy" and rebuild_legacy:
             s.action = "archive+build"
-        if s.state == "missing" and STAGES[s.job.stage.key].legacy_cmd is None:
+        if s.state == "missing" and not (STAGES[s.job.stage.key].legacy_cmd or STAGES[s.job.stage.key].port):
             s.action = "not built"
     # A rebuilt job makes everything downstream of it in this run out of date too.
     order = list(STAGES)

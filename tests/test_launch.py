@@ -22,11 +22,9 @@ class TestLaunch(unittest.TestCase):
         self.assertIn("#PBS -A UNYU0020", text)
         self.assertIn("=== DONE d_T_b06_1985", text)
 
-    def test_unbuilt_stage_is_skipped(self):
-        jobs = expand(["f"], years=(1985, 1985))
-        with tempfile.TemporaryDirectory() as tmp:
-            written, missing = write_all(jobs, tmp)
-        self.assertEqual((len(written), len(missing)), (0, 2))
+    def test_ported_stage_runs_from_repo(self):
+        job = expand(["f"], years=(1985, 1985), events=["M"])[0]
+        self.assertTrue(job.command().endswith("pipeline/f.py 1985 M --buffer 6"))
 
 
 if __name__ == "__main__":
