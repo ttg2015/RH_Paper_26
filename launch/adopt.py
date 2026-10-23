@@ -8,6 +8,7 @@ explanation, and the report includes a small evidence figure per check where one
 import calendar
 import csv
 import random
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -237,7 +238,7 @@ def verdict(r):
 
 # --- Driver -----------------------------------------------------------------------
 def run(stage_keys, years, events, out_dir, work=None, log_dir=None, script_dir=None,
-        zs_file=None, sample=50, seed=0, apply=False, git="nogit"):
+        zs_file=None, sample=50, seed=0, apply=False, git="nogit", progress=True):
     """Check every expected file; open a random sample of `sample` per stage (None = all).
 
     With apply=True (needs sample=None, so every file was opened) the files whose verdict
@@ -263,10 +264,16 @@ def run(stage_keys, years, events, out_dir, work=None, log_dir=None, script_dir=
                 items.append((Result(key, label, path, log), req, job))
         deep = set(range(len(items))) if sample is None else \
             set(rng.sample(range(len(items)), min(sample, len(items))))
+        t0 = time.time()
+        print(f"stage {key}: {len(items)} files, opening {len(deep)}", flush=True)
         for i, (r, req, job) in enumerate(items):
             ctx = {"event": job.event, "zs_file": zs_file, "script": script_dir / SCRIPT[key]}
             check_file(r, req, ctx, i in deep, sizes, evidence)
             results.append(r)
+            if progress and (i + 1) % max(1, len(items) // 20) == 0:
+                el = time.time() - t0
+                print(f"  {key} {i + 1}/{len(items)}  {el:.0f}s elapsed, "
+                      f"~{el / (i + 1) * (len(items) - i - 1):.0f}s left", flush=True)
     size_checks(sizes)
     for r in results:
         r.verdict = verdict(r)

@@ -102,7 +102,7 @@ def run(out_dir):
         work, logs, inv = build(Path(tmp), rng)
         report = adopt.run(["b", "d", "e"], (1980, 1981), ["T", "M"], out_dir, work=work,
                            log_dir=logs, script_dir=Path(tmp) / "no_scripts", zs_file=inv,
-                           sample=None)
+                           sample=None, progress=False)
     _append_cases(report)
     return report
 
