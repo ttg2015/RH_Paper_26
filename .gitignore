@@ -1,0 +1,15 @@
+# Data and run products never go in git
+*.nc
+*.nc4
+*.zarr
+*.npz
+*.npy
+*.pdf
+*.png
+logs/
+runs/
+legacy/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store

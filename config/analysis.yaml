@@ -1,0 +1,50 @@
+# Every analysis choice that has caused an error lives here. See pipeline-map/Errors.
+years: [1980, 2019]
+events: [T, M]          # T = annual max 2 m temperature, M = annual max 2 m MSE
+buffer_hours: 6
+
+# E01: one latitude band for the whole project
+lat_band: [-50.0, 65.0]
+lat_subbands:            # for regional sample spaces (unweighted, E02)
+  TP: [-20.0, 20.0]
+  ST: [20.0, 35.0]
+  ML: [35.0, 65.0]
+
+# E10: one mask used by every figure
+mask:
+  lsm_min: 0.9
+  zs_max_km: 0.5
+
+# E02: cos(lat) weighting for global distributions and means; not within subbands
+area_weighting:
+  global: true
+  subbands: false
+
+# E13: canonical constants (kJ/kg units)
+constants:
+  cp: 1.004709      # kJ/(kg K)
+  Lv: 2500.8        # kJ/kg
+  g: 9.8            # m/s^2
+  Rd: 0.287         # kJ/(kg K)
+  eps: 0.621981     # Rd/Rv
+
+# E04: the ε sweep for stage f; the figure value is chosen later
+epsilon:
+  sweep_km: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+  figure_km: null
+
+# Stage f plausibility window
+ztop_window_hPa: [400, 600]
+
+rh_bins:
+  width: 0.05
+  range: [0.0, 1.0]
+
+# E11: RH0 comes from the Excess vs RH zero crossing; window still to be chosen
+log_fit:
+  rh0: from_crossing
+  rh_window: null
+
+# E12: one definition of the free-tropospheric energy boxes (h500, h*500) in kJ/kg.
+# TODO: copy the values from e_RH_bins.py lines 63-72 when porting stage e.
+boxes: {}

@@ -1,0 +1,15 @@
+# PBS settings. Ported from STAGE_CFG in !_Launcher.ipynb.
+project: UNYU0020
+queue: main
+conda_env: npl
+python: python
+
+stages:
+  a:  {walltime: "00:45:00", select: "select=1:ncpus=1:mem=32GB"}
+  b:  {walltime: "00:30:00", select: "select=1:ncpus=1:mem=64GB"}
+  c0: {walltime: "01:00:00", select: "select=1:ncpus=1:mem=64GB"}
+  c1: {walltime: "01:30:00", select: "select=1:ncpus=1:mem=64GB"}
+  c2: {walltime: "01:30:00", select: "select=1:ncpus=1:mem=32GB"}
+  d:  {walltime: "00:45:00", select: "select=1:ncpus=1:mem=32GB"}
+  e:  {walltime: "00:30:00", select: "select=1:ncpus=1:mem=32GB"}
+  f:  {walltime: "02:00:00", select: "select=1:ncpus=1:mem=64GB"}

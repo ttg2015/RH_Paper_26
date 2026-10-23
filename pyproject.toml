@@ -1,0 +1,14 @@
+[project]
+name = "paper26"
+version = "0.1.0"
+description = "Paper 2026 pipeline: surface energy excess during heat extremes"
+requires-python = ">=3.9"
+dependencies = ["numpy", "scipy", "xarray", "netCDF4", "pyyaml"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["tpl_mll*", "launch*"]

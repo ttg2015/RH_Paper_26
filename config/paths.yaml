@@ -1,0 +1,32 @@
+# Where things live on GLADE. Ported from Locations_of_files.py.
+era5:
+  root: /glade/campaign/collections/rda/data/d633000/
+  pressure_levels: e5.oper.an.pl/
+  surface: e5.oper.an.sfc/
+  model_levels: /glade/campaign/collections/rda/data/d633006/e5.oper.an.ml/
+  invariant_z: e5.oper.invariant/197901/e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc
+  invariant_lsm: e5.oper.invariant/197901/e5.oper.invariant.128_172_lsm.ll025sc.1979010100_1979010100.nc
+
+# Output root (scratch). Every stage writes under here.
+work: /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/
+
+outputs:            # relative to work
+  T2m: T2m/
+  Q2m: Q2m/
+  SP: SP/
+  MSE2m: MSE2m/
+  annmax_T2m: AnnMax/T2m/
+  annmax_MSE2m: AnnMax/MSE2m/
+  profiles: Profiles/
+  profiles_intermediate: Profiles/intermediate/
+  derived: Profiles/derived/
+  rh_binned: rh_binned/
+  convective: Convective/
+  ztop: Ztop/
+
+# Old scripts still run by the launch bay until each stage is ported to pipeline/.
+legacy_scripts: "/glade/u/home/tylerg/Extreme Heat/Paper26_Cleaned/Scripts"
+
+# Where the launch bay writes PBS scripts, logs and run manifests.
+pbs_dir: /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/pbs/
+log_dir: /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/
