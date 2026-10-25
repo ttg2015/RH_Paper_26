@@ -7,13 +7,21 @@ bins:                   # [start, stop, step]
   delta: [-40.0, 60.0, 0.25]     # kJ/kg, for δ_FT, δ_S, δ_total
   rh:    [0.0, 1.05, 0.005]      # RH_2m (q / q_sat; can slightly exceed 1)
   zlcl:  [0.0, 5000.0, 25.0]     # m above ground
+  energy: [280.0, 390.0, 0.5]    # kJ/kg, for h*500, h_2m, h_LPL planes
 
 hist1d: [delta_FT, delta_S, delta_total]
 hist2d:                 # name: [x quantity, x bins, y quantity, y bins]
   h2_rh_dFT:   [RH_2m, rh, delta_FT, delta]
   h2_rh_dS:    [RH_2m, rh, delta_S, delta]
   h2_zlcl_dFT: [zLCL_2m, zlcl, delta_FT, delta]
+  h2_hs500_h2m:  [h_star500, energy, h_2m, energy]       # surface layer correction figure
+  h2_hs500_hlpl: [h_star500, energy, h_LPL, energy]
 maps: [delta_FT, delta_S, delta_total]
+map_sp_min_hPa: 500     # maps keep every cell (ocean too) with surface pressure above this
+
+# Convective split of δ_FT (old Paper_Plots-2 cells 124/137): plume from the LPL at this ε
+convective:
+  eps: 0.2
 
 # Mask for figure data: latitude band + land only. The terrain cut (zs < 0.5 km) is applied
 # only to the entrainment analysis (stage f). Profile composites drop below-ground levels.

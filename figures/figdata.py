@@ -47,7 +47,7 @@ class FigData:
         first = xr.load_dataset(folder() / f"figdata_{event}_b06_{sel[0][0]}.nc")
         self.attrs, self.edges = dict(first.attrs), {k[6:]: first[k].values for k in first.data_vars
                                                     if k.startswith("edges_")}
-        hist_vars = [k for k in first.data_vars if k.startswith(("h1_", "h2_", "casc_"))]
+        hist_vars = [k for k in first.data_vars if k.startswith(("h1_", "h2_", "casc_", "lb_"))]
         map_vars = [k for k in first.data_vars if k.startswith("map_")]
         self.hist = {k: first[k].values.copy() for k in hist_vars}
         self.var_attrs = {k: dict(first[k].attrs) for k in hist_vars + map_vars}

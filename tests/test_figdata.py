@@ -36,7 +36,7 @@ def build(root, years=(1985, 1986)):
             P = {v: np.zeros((1, 1, ny, nx, len(LEVELS)), "float32") for v in ("MSE", "MSE_sat", "Z", "T")}
             S = {v: np.zeros((1, 1, ny, nx), "float32") for v in ("MSE2m", "SP")}
             D = {v: np.zeros((1, 1, ny, nx), "float32") for v in
-                 ("MSE_LPL", "LPL_pressure", "p_LCL_LPL", "RH_2m", "z_LCL_2m")}
+                 ("MSE_LPL", "LPL_pressure", "p_LCL_LPL", "RH_2m", "z_LCL_2m", "z_LCL_LPL", "Z_LPL")}
             for a in range(ny):
                 for b in range(nx):
                     h, hs, phi, T, q = sounding(T_s[a, b], rh_s[a, b])
@@ -49,6 +49,8 @@ def build(root, years=(1985, 1986)):
                     D["p_LCL_LPL"][0, 0, a, b] = thermo.p_lcl(T[-1], rh_s[a, b], 1000.0)
                     D["RH_2m"][0, 0, a, b] = rh_s[a, b]
                     D["z_LCL_2m"][0, 0, a, b] = zs[a, b] + thermo.dz_lcl(T[-1], rh_s[a, b])   # legacy: ASL
+                    D["z_LCL_LPL"][0, 0, a, b] = D["z_LCL_2m"][0, 0, a, b]
+                    D["Z_LPL"][0, 0, a, b] = zs[a, b] * 9.8 / 1000.0 + phi[-1]
             dims = ("year", "lead", "latitude", "longitude")
             co = {"year": [year], "lead": [0], "latitude": lat, "longitude": lon}
             xr.Dataset({**{v: (dims + ("level",), x) for v, x in P.items()},
@@ -112,8 +114,9 @@ class TestFigData(unittest.TestCase):
         make_all.main()
         index = (out / "index.html").read_text()
         self.assertNotIn("failed</h2>", index)
-        for name in ("excess_histograms", "excess_vs_rh", "excess_vs_rh_entrainment", "cascade",
-                     "excess_maps", "excess_vs_zlcl", "ztop_fractions"):
+        for name in ("excess_histograms", "excess_histograms_unweighted", "weighting_check", "surface_layer",
+                     "excess_maps", "excess_vs_rh", "excess_vs_rh_entrainment", "lcl_binned",
+                     "convective_maps", "cascade", "excess_vs_zlcl", "wbt_increase", "ztop_fractions"):
             self.assertTrue((out / f"{name}.png").exists(), name)
             self.assertTrue((out / f"{name}.pdf").exists(), name)
 

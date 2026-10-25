@@ -51,6 +51,8 @@ def write(folder, years=(1985, 1986), n=100_000, seed=0):
                     ds[f"h1_{name}{suf}"] = (("subband", "bin_delta"), np.array(rows, float))
                     ds[f"h1_{name}{suf}"].attrs.update(edges="edges_delta")
             for name, (qx, bx, qy, by) in cfg["hist2d"].items():
+                if qx not in q or qy not in q:
+                    continue                                  # energy planes filled below
                 for wt, suf in ((None, ""), (w, "_w")):
                     rows = [np.histogram2d(q[qx][(lat_e >= a) & (lat_e <= b)], q[qy][(lat_e >= a) & (lat_e <= b)],
                                            [E[bx], E[by]],
@@ -58,6 +60,32 @@ def write(folder, years=(1985, 1986), n=100_000, seed=0):
                             for a, b in sub.values()]
                     ds[f"{name}{suf}"] = (("subband", f"bin_{bx}", f"bin_{by}"), np.array(rows))
                     ds[f"{name}{suf}"].attrs.update(x_edges=f"edges_{bx}", y_edges=f"edges_{by}")
+            # surface-layer planes, LCL-binned stats (unstable), RH × z_LCL density
+            hs500 = rng.normal(338 if e == "M" else 332, 6, n)
+            h_lpl = hs500 + dft
+            h2m = h_lpl + ds_
+            for name, (xq, yq) in {"h2_hs500_h2m": (hs500, h2m), "h2_hs500_hlpl": (hs500, h_lpl)}.items():
+                for wt, suf in ((None, ""), (w, "_w")):
+                    rows = [np.histogram2d(xq[(lat_e >= a) & (lat_e <= b)], yq[(lat_e >= a) & (lat_e <= b)],
+                                           [E["energy"], E["energy"]],
+                                           weights=None if wt is None else wt[(lat_e >= a) & (lat_e <= b)])[0]
+                            for a, b in sub.values()]
+                    ds[f"{name}{suf}"] = (("subband", "bin_energy", "bin_energy_y"), np.array(rows))
+                    ds[f"{name}{suf}"].attrs.update(x_edges="edges_energy", y_edges="edges_energy")
+            u = dft > 0
+            dB = np.clip(0.15 * dft + 0.0008 * z, 0, None)
+            dA = dft - dB
+            ds["h2_rh_zlcl2m_unstable"] = (("bin_rh", "bin_zlcl"), np.histogram2d(rh[u], z[u], [E["rh"], E["zlcl"]])[0])
+            ds["h2_rh_zlcl2m_unstable"].attrs.update(x_edges="edges_rh", y_edges="edges_zlcl")
+            for coord, bkey, cv in (("zLCL_LPL", "zlcl", z), ("RH_2m", "rh", rh)):
+                idx = np.digitize(cv[u], E[bkey]) - 1
+                ok = (idx >= 0) & (idx < len(E[bkey]) - 1)
+                st = np.zeros((len(E[bkey]) - 1, 3, 3))
+                for k, v in enumerate((dft[u], dB[u], dA[u])):
+                    np.add.at(st[:, k, 0], idx[ok], 1.0)
+                    np.add.at(st[:, k, 1], idx[ok], v[ok])
+                    np.add.at(st[:, k, 2], idx[ok], v[ok] ** 2)
+                ds[f"lb_{coord}"] = ((f"bin_{bkey}", "lb_quantity", "lb_stat"), st)
             # maps
             ds = ds.assign_coords(latitude=lat, longitude=lon)
             ds["in_mask"] = (("latitude", "longitude"), (rng.random((len(lat), len(lon))) < 0.3).astype("int8"))
@@ -65,6 +93,9 @@ def write(folder, years=(1985, 1986), n=100_000, seed=0):
             for name in cfg["maps"]:
                 base = (8 if e == "M" else -6) * np.cos(np.deg2rad(O)) + 3 * np.sin(np.deg2rad(L) * 2)
                 ds[f"map_{name}"] = (("latitude", "longitude"), (base + rng.normal(0, 2, base.shape)).astype("float32"))
+            fte = ds["map_delta_FT"].values
+            ds["map_delta_below"] = (("latitude", "longitude"), np.where(fte > 0, 0.2 * fte, np.nan).astype("float32"))
+            ds["map_delta_above"] = (("latitude", "longitude"), np.where(fte > 0, 0.8 * fte, np.nan).astype("float32"))
             # cascade: profiles drop from h_ML through a sickle to a minimum near 600 hPa
             boxes = list(cfg["cascade"]["boxes"])
             nb = len(ce) - 1

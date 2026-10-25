@@ -25,12 +25,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from tpl_mll.config import load                                  # noqa: E402
 from tpl_mll.corrections import z_lcl_above_ground_legacy        # noqa: E402
 from tpl_mll.masks import _invariant, surface_height_km          # noqa: E402
+from tpl_mll import ztop                                          # noqa: E402
 
 UNITS = {"delta_FT": "kJ kg-1", "delta_S": "kJ kg-1", "delta_total": "kJ kg-1",
-         "RH_2m": "1", "zLCL_2m": "m above ground"}
+         "delta_below": "kJ kg-1", "delta_above": "kJ kg-1",
+         "RH_2m": "1", "zLCL_2m": "m above ground", "zLCL_LPL": "m above ground",
+         "h_star500": "kJ kg-1", "h_2m": "kJ kg-1", "h_LPL": "kJ kg-1"}
 FEEDS = {"h1": "Fig - Excess Histograms", "h2_rh_dFT": "Fig - Excess vs RH",
          "h2_rh_dS": "Excess vs RH (surface layer)", "h2_zlcl_dFT": "Fig - LCL-Binned Decomposition",
-         "map": "Fig - Excess Maps", "cascade": "Fig - RH Cascades"}
+         "map": "Fig - Excess Maps", "cascade": "Fig - RH Cascades",
+         "h2_hs500_h2m": "Surface layer correction (old TempThing_overlay_right)",
+         "h2_hs500_hlpl": "Surface layer correction (old TempThing_overlay_right)",
+         "h2_rh_zlcl2m_unstable": "Fig - LCL-Binned Decomposition (panel a)",
+         "lb": "Fig - LCL-Binned Decomposition (panels b, c)"}
 
 
 def edges(spec):
@@ -46,23 +53,55 @@ def fields(year, event, buffer, lead):
     with xr.open_dataset(work / out["profiles"] / f"profiles_{event}_b{buffer:02d}_{year}.nc") as p:
         prof = p[["MSE2m", "MSE", "MSE_sat", "T", "Z", "SP"]].sel(lead=lead).isel(year=0).load()
     with xr.open_dataset(work / out["derived"] / f"derived_{event}_b{buffer:02d}_{year}.nc") as d:
-        der = d[["MSE_LPL", "RH_2m", "z_LCL_2m"]].sel(lead=lead).isel(year=0).load()
+        der = d[["MSE_LPL", "RH_2m", "z_LCL_2m", "z_LCL_LPL", "Z_LPL", "LPL_pressure", "p_LCL_LPL"]
+                ].sel(lead=lead).isel(year=0).load()
     grid = lambda da: da.transpose("latitude", "longitude").values.astype("float64")
     lat, lon = prof["latitude"].values, prof["longitude"].values
     h_lpl = grid(der["MSE_LPL"])
     h_2m = grid(prof["MSE2m"])
     hs500 = grid(prof["MSE_sat"].sel(level=500))
     z = grid(der["z_LCL_2m"])
+    z_lpl = grid(der["z_LCL_LPL"])
     if der["z_LCL_2m"].attrs.get("reference") != "above_ground":      # legacy d (E07)
-        z = z_lcl_above_ground_legacy(z, surface_height_km(lat, lon) * 1000.0)
+        zs_m = surface_height_km(lat, lon) * 1000.0
+        z = z_lcl_above_ground_legacy(z, zs_m)
+        z_lpl = z_lcl_above_ground_legacy(z_lpl, zs_m, grid(der["Z_LPL"]) / 9.8 * 1000.0)
     f = {"delta_FT": h_lpl - hs500, "delta_S": h_2m - h_lpl, "delta_total": h_2m - hs500,
          "RH_2m": grid(der["RH_2m"]), "zLCL_2m": z,
-         "h500": grid(prof["MSE"].sel(level=500)), "h_star500": hs500}
+         "h500": grid(prof["MSE"].sel(level=500)), "h_star500": hs500,
+         "h_2m": h_2m, "h_LPL": h_lpl, "zLCL_LPL": z_lpl, "p_LPL": grid(der["LPL_pressure"]),
+         "p_LCL_LPL": grid(der["p_LCL_LPL"]), "SP_hPa": grid(prof["SP"]) / 100.0}
     levels = prof["level"].values.astype(float)
     above = prof["level"] <= prof["SP"] / 100.0                     # drop below-ground levels
     profiles = {v: prof[v].where(above).transpose("latitude", "longitude", "level").values
                 for v in ("MSE", "MSE_sat", "T", "Z")}
+    # raw (unmasked) columns for the plume: it starts at the LPL, so it never uses levels below it
+    profiles["raw"] = {v: prof[v].transpose("latitude", "longitude", "level").values.astype("float64")
+                       for v in ("MSE", "MSE_sat", "Z")}
     return f, lat, lon, levels, profiles
+
+
+def convective(f, levels, raw, mask, eps):
+    """Old Paper_Plots-2 cell 124 split, for unstable events: plume from the LPL with h_LPL,
+    δ_below = h_LPL − h_plume(p_LCL of LPL air), δ_above = δ_FT − δ_below. NaN elsewhere."""
+    dB = np.full(mask.shape, np.nan)
+    act = mask & (f["delta_FT"] > 0) & np.isfinite(f["p_LCL_LPL"]) & np.isfinite(f["h_LPL"])
+    i, j = np.nonzero(act)
+    for s in range(0, len(i), 40000):
+        ii, jj = i[s:s + 40000], j[s:s + 40000]
+        p0 = np.minimum(f["p_LPL"][ii, jj], levels.max())
+        cols = ztop.Columns(levels, raw["MSE"][ii, jj], raw["MSE_sat"][ii, jj], raw["Z"][ii, jj],
+                            f["h_LPL"][ii, jj], p0)
+        hp = ztop.plume(cols.h, cols.z, cols.h0, eps)
+        plcl = f["p_LCL_LPL"][ii, jj]
+        lnp = np.log(cols.p)                                        # descending pressure → ascending index
+        k = np.clip((lnp > np.log(plcl)[:, None]).sum(1) - 1, 0, lnp.shape[1] - 2)
+        r = np.arange(len(k))
+        w = (np.log(plcl) - lnp[r, k]) / (lnp[r, k + 1] - lnp[r, k])
+        hp_lcl = hp[r, k] * (1 - w) + hp[r, k + 1] * w
+        ok = (plcl <= p0) & (plcl >= cols.p[:, -1])
+        dB[ii, jj] = np.where(ok, f["h_LPL"][ii, jj] - hp_lcl, np.nan)
+    return dB, f["delta_FT"] - dB
 
 
 def figure_mask(lat, lon, cfg):
@@ -142,13 +181,42 @@ def run(year, event, buffer):
                 x_units=UNITS[qx], y_units=UNITS[qy], x_edges=f"edges_{bx}", y_edges=f"edges_{by}",
                 feeds=FEEDS[name2])
 
-    # Maps: every cell's value (one event per cell per year), mask applied at plot time
+    # Convective split (old cells 124/137): unstable events in the figure mask
+    conv = cfg["convective"]
+    dB, dA = convective(f, levels, profiles["raw"], mask, conv["eps"])
+    f["delta_below"], f["delta_above"] = dB, dA
+    unst = mask & np.isfinite(dB)
+    m2 = unst & np.isfinite(f["RH_2m"]) & np.isfinite(f["zLCL_2m"])
+    ds["h2_rh_zlcl2m_unstable"] = (("bin_rh", "bin_zlcl"),
+                                   np.histogram2d(f["RH_2m"][m2], f["zLCL_2m"][m2], [E["rh"], E["zlcl"]])[0])
+    ds["h2_rh_zlcl2m_unstable"].attrs.update(x="RH_2m", y="zLCL_2m", x_edges="edges_rh", y_edges="edges_zlcl",
+                                              units="count", feeds=FEEDS["h2_rh_zlcl2m_unstable"])
+    qs = ["delta_FT", "delta_below", "delta_above"]
+    for coord, bkey in (("zLCL_LPL", "zlcl"), ("RH_2m", "rh")):
+        m = unst & np.isfinite(f[coord])
+        idx = np.digitize(f[coord][m], E[bkey]) - 1
+        ok = (idx >= 0) & (idx < len(E[bkey]) - 1)
+        stats = np.zeros((len(E[bkey]) - 1, len(qs), 3))           # n, sum, sum of squares
+        for k, q in enumerate(qs):
+            v = f[q][m][ok]
+            np.add.at(stats[:, k, 0], idx[ok], 1.0)
+            np.add.at(stats[:, k, 1], idx[ok], v)
+            np.add.at(stats[:, k, 2], idx[ok], v * v)
+        ds[f"lb_{coord}"] = ((f"bin_{bkey}", "lb_quantity", "lb_stat"), stats)
+        ds[f"lb_{coord}"].attrs.update(edges=f"edges_{bkey}", units="kJ kg-1", feeds=FEEDS["lb"],
+                                       note="unstable events (delta_FT > 0); stats n, sum, sum of squares",
+                                       eps_km=conv["eps"])
+    ds = ds.assign_coords(lb_quantity=qs, lb_stat=["n", "sum", "sumsq"])
+
+    # Maps: all cells (ocean too) where SP > map_sp_min_hPa; band and land drawn at plot time
     ds = ds.assign_coords(latitude=lat, longitude=lon)
     ds["in_mask"] = (("latitude", "longitude"), mask.astype("int8"))
-    for q in cfg["maps"]:
-        ds[f"map_{q}"] = (("latitude", "longitude"), f[q].astype("float32"))
+    ok_sp = f["SP_hPa"] > cfg["map_sp_min_hPa"]
+    for q in cfg["maps"] + ["delta_below", "delta_above"]:
+        ds[f"map_{q}"] = (("latitude", "longitude"), np.where(ok_sp, f[q], np.nan).astype("float32"))
         ds[f"map_{q}"].attrs.update(units=UNITS[q], feeds=FEEDS["map"],
-                                    note="one value per cell per year; sum over years and divide by the count of finite values")
+                                    note="one value per cell per year; sum over years and divide by the count "
+                                         f"of finite values; NaN where SP <= {cfg['map_sp_min_hPa']} hPa")
 
     # Cascade composites (only boxes for this event type carry events, by construction)
     ce, csum, cw, cn = cascade(f, levels, profiles, mask, weight, cfg)
