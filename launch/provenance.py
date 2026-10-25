@@ -15,6 +15,7 @@ from tpl_mll.config import CONFIG_DIR, load
 
 REPO = Path(__file__).resolve().parents[1]
 PREFIX = "paper26_"
+STAGE_CONFIG = {"g": ["figdata"]}      # extra config files that only one stage depends on
 
 
 @lru_cache(maxsize=None)
@@ -22,7 +23,9 @@ def fingerprint(stage_key):
     from .adopt import SCRIPT
     h = hashlib.sha1()
     # analysis.yaml only: paths.yaml and hpc.yaml (walltimes, queues) can't change results
-    for p in sorted((REPO / "src" / "tpl_mll").glob("*.py")) + [CONFIG_DIR / "analysis.yaml"]:
+    files = sorted((REPO / "src" / "tpl_mll").glob("*.py")) + [CONFIG_DIR / "analysis.yaml"]
+    files += [CONFIG_DIR / f"{name}.yaml" for name in STAGE_CONFIG.get(stage_key, [])]
+    for p in files:
         h.update(p.read_bytes())
     port = REPO / "pipeline" / f"{stage_key}.py"
     script = port if port.exists() else Path(load("paths")["legacy_scripts"]) / SCRIPT.get(stage_key, "")

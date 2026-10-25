@@ -40,6 +40,8 @@ STAGES = {s.key: s for s in [
           legacy_cmd="e_RH_bins.py {year} --buffer {buffer}"),
     Stage("f", "ztop", ("year", "event"), ("d",),
           port="f.py {year} {event} --buffer {buffer}"),
+    Stage("g", "figdata", ("year", "event"), ("d",),
+          port="g.py {year} {event} --buffer {buffer}"),
 ]}
 
 

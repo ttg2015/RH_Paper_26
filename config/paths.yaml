@@ -24,6 +24,7 @@ outputs:            # relative to work
   rh_binned: rh_binned/
   convective: Convective/
   ztop: Ztop/
+  figdata: FigData/
 
 # Old scripts still run by the launch bay until each stage is ported to pipeline/.
 legacy_scripts: "/glade/u/home/tylerg/Extreme Heat/Paper26_Cleaned/Scripts"

@@ -23,7 +23,7 @@ COLOR = {"done": "#a5d6a7", "running": "#fff176", "queued": "#fff9c4", "failed":
 ORDER = ["done", "running", "queued", "failed", "stale", "legacy", "missing"]
 # Where each stage sits on the map (column, row)
 POS = {"a": (0, 1), "b": (1, 1), "c0": (2, 1), "c1": (3, 1), "c2": (4, 1),
-       "d": (5, 1), "e": (6, 1.6), "f": (6, 0.4)}
+       "d": (5, 1), "e": (6, 1.9), "f": (6, 1.0), "g": (6, 0.1)}
 
 
 def refresh(years=None):
@@ -82,10 +82,10 @@ def draw_map(data, ax=None):
               (COLOR["running"], "#90a4ae", "-", "running / queued"), (COLOR["failed"], "#90a4ae", "-", "failed"),
               (COLOR["stale"], "#90a4ae", "-", "stale (old code)"), (COLOR["missing"], "#90a4ae", "--", "missing")]
     for i, (fc, ec, ls, name) in enumerate(legend):
-        ax.add_patch(FancyBboxPatch((i * 1.32 - 0.4, -0.45), 0.18, 0.14, boxstyle="square,pad=0",
+        ax.add_patch(FancyBboxPatch((i * 1.32 - 0.4, -0.62), 0.18, 0.14, boxstyle="square,pad=0",
                                     fc=fc, ec=ec, ls=ls))
-        ax.text(i * 1.32 - 0.17, -0.38, name, va="center", fontsize=7)
-    ax.set(xlim=(-0.6, 7.4), ylim=(-0.6, 2.1), aspect="equal")
+        ax.text(i * 1.32 - 0.17, -0.55, name, va="center", fontsize=7)
+    ax.set(xlim=(-0.6, 7.4), ylim=(-0.75, 2.35), aspect="equal")
     ax.axis("off")
     ax.set_title(f"Pipeline · code {data['git']} · config {data['config']} · {data['generated']}",
                  fontsize=9, loc="left")

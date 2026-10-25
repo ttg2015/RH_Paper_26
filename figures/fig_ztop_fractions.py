@@ -71,6 +71,32 @@ def plot(by_event, order=ORDER, weighted=False, window=(400, 600)):
     return fig
 
 
+def make(out_dir, years=None, weighted=True):
+    """For make_all.py: both events, every ztop file in the year range."""
+    y0, y1 = years or (0, 9999)
+    by_event = {}
+    for year, event in F.available():
+        if y0 <= year <= y1:
+            by_event.setdefault(event, []).append(F.open_ztop(year, event))
+    if not by_event:
+        raise FileNotFoundError("no ztop files")
+    by_event = {e: by_event[e] for e in ("T", "M") if e in by_event}
+    fig = plot(by_event, ORDER, weighted, tuple(F.load("analysis")["ztop_window_hPa"]))
+    out = Path(out_dir) / "ztop_fractions"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    for ext in ("pdf", "png"):
+        fig.savefig(out.with_suffix(f".{ext}"), dpi=200, bbox_inches="tight")
+    facts = {}
+    for e, dss in by_event.items():
+        eps, fr = F.fractions(dss, weighted)
+        ratio = fr[1] / (1 - fr[4])
+        k = int(np.nanargmax(ratio))
+        facts[f"best pass/buoyant {e}"] = f"{100 * ratio[k]:.0f}% at ε = {eps[k]:.2f} ({len(dss)} years)"
+    facts["weighting"] = "cos(lat)" if weighted else "none"
+    return [{"path": out.with_suffix(".png"), "title": "Plume tops vs ε (stage f)", "facts": facts,
+             "script": "figures/fig_ztop_fractions.py"}]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--years", help="e.g. 1980-2019 (default: every ztop file found)")
