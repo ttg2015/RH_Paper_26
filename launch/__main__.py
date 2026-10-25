@@ -94,7 +94,7 @@ def cmd_resume(args):
 def cmd_status(args):
     from . import state, status
     from .pbs import git_hash
-    data = status.summary(state.collect(_stages(args.stages or BUILT + ["f"]),
+    data = status.summary(state.collect(_stages(args.stages or list(STAGES)),
                                         _years(args.years)), git_hash())
     path = status.write(data, REPO / "runs" / "status")
     if args.failed:

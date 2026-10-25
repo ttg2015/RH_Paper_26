@@ -45,34 +45,47 @@ def draw_map(data, ax=None):
     for key, (x, y) in POS.items():
         st = data["stages"].get(key)
         state = worst(st) if st else "missing"
-        frac = st["done"] / st["total"] if st and st["total"] else 0
-        frac_old = st["legacy"] / st["total"] if st and st["total"] else 0
-        ax.add_patch(FancyBboxPatch((x - 0.4, y - 0.3), 0.8, 0.6, boxstyle="round,pad=0.02",
-                                    fc=COLOR[state], ec="#37474f",
-                                    lw=2.5 if state == "failed" else 1,
-                                    ls="--" if state == "missing" else "-"))
-        ax.add_patch(FancyBboxPatch((x - 0.35, y - 0.25), 0.7 * frac, 0.06, boxstyle="square,pad=0",
-                                    fc="#2e7d32", ec="none"))
-        ax.add_patch(FancyBboxPatch((x - 0.35 + 0.7 * frac, y - 0.25), 0.7 * frac_old, 0.06,
-                                    boxstyle="square,pad=0", fc="#ef6c00", ec="none"))
-        label = f"{key} {STAGES[key].name}"
-        sub = f"{st['done']}/{st['total']} done" if st else "not built"
-        if st and st["legacy"]:
-            ax.text(x, y - 0.17, f"+{st['legacy']} legacy", ha="center", va="center", fontsize=6.5,
-                    color="#bf360c")
-        ax.text(x, y + 0.08, label, ha="center", va="center", fontsize=9, weight="bold")
-        ax.text(x, y - 0.04, sub, ha="center", va="center", fontsize=8)
+        total = st["total"] if st else 0
+        exist = st["done"] + st["legacy"] + st["stale"] if st else 0
+        all_there = st and total and st["done"] + st["legacy"] == total
+        if all_there:          # every output exists: green, dashed edge until verified
+            fc, ec, ls = ("#a5d6a7", "#2e7d32", "-") if st["done"] == total else ("#e8f5e9", "#43a047", "--")
+        else:
+            fc, ec, ls = COLOR[state], "#37474f", "--" if state == "missing" else "-"
+        ax.add_patch(FancyBboxPatch((x - 0.42, y - 0.3), 0.84, 0.6, boxstyle="round,pad=0.02",
+                                    fc=fc, ec=ec, lw=2.5 if state == "failed" else 1.3, ls=ls))
+        if total:              # strip: dark = verified, light = exists unverified
+            for start, width, color in ((0, st["done"] / total, "#2e7d32"),
+                                        (st["done"] / total, st["legacy"] / total, "#81c784")):
+                ax.add_patch(FancyBboxPatch((x - 0.36 + 0.72 * start, y - 0.25), 0.72 * width, 0.05,
+                                            boxstyle="square,pad=0", fc=color, ec="none"))
+        ax.text(x, y + 0.13, f"{key} {STAGES[key].name}", ha="center", va="center", fontsize=8.5,
+                weight="bold")
+        ax.text(x, y + 0.0, f"{exist}/{total} exist" if st else "not built", ha="center",
+                va="center", fontsize=7.5)
+        if st:
+            note = ("all verified" if st["done"] == total else
+                    f"{st['done']} verified" if all_there else
+                    ", ".join(f"{st[k]} {k}" for k in ("failed", "running", "queued", "stale", "missing") if st[k]))
+            ax.text(x, y - 0.13, note, ha="center", va="center", fontsize=6.5, color="#455a64")
     for key, stage in STAGES.items():
         for dep in stage.depends_on:
             (x0, y0), (x1, y1) = POS[dep], POS[key]
-            ax.annotate("", (x1 - 0.4, y1), (x0 + 0.4, y0),
-                        arrowprops=dict(arrowstyle="->", color="#78909c",
-                                        connectionstyle="arc3,rad=0.25" if abs(x1 - x0) > 1 else None))
-    for i, s in enumerate(ORDER):
-        ax.add_patch(FancyBboxPatch((i * 0.95 - 0.4, -0.33), 0.18, 0.14, boxstyle="square,pad=0",
-                                    fc=COLOR[s], ec="#90a4ae"))
-        ax.text(i * 0.95 - 0.17, -0.26, s, va="center", fontsize=7)
-    ax.set(xlim=(-0.6, 6.6), ylim=(-0.5, 2.1), aspect="equal")
+            if abs(x1 - x0) > 1:   # long hop: loop under the boxes in between
+                ax.annotate("", (x1, y1 - 0.32), (x0, y0 - 0.32),
+                            arrowprops=dict(arrowstyle="->", color="#78909c",
+                                            connectionstyle="arc3,rad=0.12"))
+            else:
+                ax.annotate("", (x1 - 0.42, y1), (x0 + 0.42, y0),
+                            arrowprops=dict(arrowstyle="->", color="#78909c"))
+    legend = [("#a5d6a7", "#2e7d32", "-", "verified"), ("#e8f5e9", "#43a047", "--", "exists, unverified"),
+              (COLOR["running"], "#90a4ae", "-", "running / queued"), (COLOR["failed"], "#90a4ae", "-", "failed"),
+              (COLOR["stale"], "#90a4ae", "-", "stale (old code)"), (COLOR["missing"], "#90a4ae", "--", "missing")]
+    for i, (fc, ec, ls, name) in enumerate(legend):
+        ax.add_patch(FancyBboxPatch((i * 1.32 - 0.4, -0.45), 0.18, 0.14, boxstyle="square,pad=0",
+                                    fc=fc, ec=ec, ls=ls))
+        ax.text(i * 1.32 - 0.17, -0.38, name, va="center", fontsize=7)
+    ax.set(xlim=(-0.6, 7.4), ylim=(-0.6, 2.1), aspect="equal")
     ax.axis("off")
     ax.set_title(f"Pipeline · code {data['git']} · config {data['config']} · {data['generated']}",
                  fontsize=9, loc="left")
@@ -133,10 +146,9 @@ def app(years=None):
         bars.children = [W.HBox([W.Label(f"{k} {st['name']}", layout=W.Layout(width="110px")),
                                  W.IntProgress(value=st["done"] + st["legacy"], max=max(st["total"], 1),
                                                bar_style="danger" if st["failed"] else
-                                               "warning" if st["legacy"] else
-                                               "success" if st["done"] == st["total"] else "info"),
-                                 W.Label(f"{st['done'] + st['legacy']}/{st['total']} exist  " + "  ".join(
-                                     f"{s} {st[s]}" for s in ORDER[1:] if st[s]))])
+                                               "success" if st["done"] + st["legacy"] == st["total"] else "info"),
+                                 W.Label(f"{st['done'] + st['legacy']}/{st['total']} exist · {st['done']} verified  " + "  ".join(
+                                     f"{s} {st[s]}" for s in ORDER[1:] if st[s] and s != "legacy"))])
                          for k, st in data["stages"].items()]
         with out_map:
             clear_output(wait=True)
