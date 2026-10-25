@@ -1,0 +1,16 @@
+#!/bin/bash -l
+# Read-only check of stage a (~58,000 daily surface files, 1980–2019). Changes no data.
+# Every file is checked for existence and size; a random 2,000 are fully opened.
+# Submit from the repo folder:   qsub jobs/adopt_a.pbs
+#PBS -N adopt_a
+#PBS -A UNYU0020
+#PBS -q casper
+#PBS -l walltime=10:00:00
+#PBS -l select=1:ncpus=1:mem=16GB
+#PBS -j oe
+#PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/adopt_a.log
+
+module load conda && conda activate npl
+cd "$PBS_O_WORKDIR"
+python -m launch adopt --stages a --years 1980-2019 --sample 2000
+echo "=== DONE adopt_a"
