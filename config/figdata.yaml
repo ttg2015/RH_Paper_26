@@ -14,3 +14,20 @@ hist2d:                 # name: [x quantity, x bins, y quantity, y bins]
   h2_rh_dS:    [RH_2m, rh, delta_S, delta]
   h2_zlcl_dFT: [zLCL_2m, zlcl, delta_FT, delta]
 maps: [delta_FT, delta_S, delta_total]
+
+# Mask for figure data: latitude band + land only. The terrain cut (zs < 0.5 km) is applied
+# only to the entrainment analysis (stage f). Profile composites drop below-ground levels.
+mask:
+  lsm_min: 0.9
+  zs_max_km: null
+
+# Cascade composites: RH-binned mean profiles in four free-tropospheric energy boxes
+# (h*_500, h_500 in kJ/kg), as in Cascade_Summary.ipynb cell 5 (plot_cascade).
+cascade:
+  rh_bins: [0.0, 1.0, 0.01]        # coarsen to 5 % at plot time
+  profile_vars: [MSE, MSE_sat, T, Z]
+  boxes:
+    T_MLL: {h_star: [326.0, 329.0], h: [320.0, 323.0]}
+    M_MLL: {h_star: [326.0, 329.0], h: [320.0, 323.0]}
+    T_TPL: {h_star: [336.5, 339.5], h: [325.5, 328.5]}
+    M_TPL: {h_star: [338.0, 342.0], h: [332.0, 335.0]}

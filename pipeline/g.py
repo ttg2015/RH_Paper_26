@@ -24,13 +24,13 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from tpl_mll.config import load                                  # noqa: E402
 from tpl_mll.corrections import z_lcl_above_ground_legacy        # noqa: E402
-from tpl_mll.masks import analysis_mask, surface_height_km       # noqa: E402
+from tpl_mll.masks import _invariant, surface_height_km          # noqa: E402
 
 UNITS = {"delta_FT": "kJ kg-1", "delta_S": "kJ kg-1", "delta_total": "kJ kg-1",
          "RH_2m": "1", "zLCL_2m": "m above ground"}
 FEEDS = {"h1": "Fig - Excess Histograms", "h2_rh_dFT": "Fig - Excess vs RH",
          "h2_rh_dS": "Excess vs RH (surface layer)", "h2_zlcl_dFT": "Fig - LCL-Binned Decomposition",
-         "map": "Fig - Excess Maps"}
+         "map": "Fig - Excess Maps", "cascade": "Fig - RH Cascades"}
 
 
 def edges(spec):
@@ -44,7 +44,7 @@ def fields(year, event, buffer, lead):
     work = Path(paths["work"])
     out = paths["outputs"]
     with xr.open_dataset(work / out["profiles"] / f"profiles_{event}_b{buffer:02d}_{year}.nc") as p:
-        prof = p[["MSE2m", "MSE_sat"]].sel(lead=lead).isel(year=0).load()
+        prof = p[["MSE2m", "MSE", "MSE_sat", "T", "Z", "SP"]].sel(lead=lead).isel(year=0).load()
     with xr.open_dataset(work / out["derived"] / f"derived_{event}_b{buffer:02d}_{year}.nc") as d:
         der = d[["MSE_LPL", "RH_2m", "z_LCL_2m"]].sel(lead=lead).isel(year=0).load()
     grid = lambda da: da.transpose("latitude", "longitude").values.astype("float64")
@@ -56,15 +56,55 @@ def fields(year, event, buffer, lead):
     if der["z_LCL_2m"].attrs.get("reference") != "above_ground":      # legacy d (E07)
         z = z_lcl_above_ground_legacy(z, surface_height_km(lat, lon) * 1000.0)
     f = {"delta_FT": h_lpl - hs500, "delta_S": h_2m - h_lpl, "delta_total": h_2m - hs500,
-         "RH_2m": grid(der["RH_2m"]), "zLCL_2m": z}
-    return f, lat, lon
+         "RH_2m": grid(der["RH_2m"]), "zLCL_2m": z,
+         "h500": grid(prof["MSE"].sel(level=500)), "h_star500": hs500}
+    levels = prof["level"].values.astype(float)
+    above = prof["level"] <= prof["SP"] / 100.0                     # drop below-ground levels
+    profiles = {v: prof[v].where(above).transpose("latitude", "longitude", "level").values
+                for v in ("MSE", "MSE_sat", "T", "Z")}
+    return f, lat, lon, levels, profiles
+
+
+def figure_mask(lat, lon, cfg):
+    """Latitude band + land; terrain cut only if figdata.yaml sets zs_max_km."""
+    lo, hi = load("analysis")["lat_band"]
+    band = (lat >= lo) & (lat <= hi)
+    m = band[:, None] & (_invariant("invariant_lsm", lat, lon) > cfg["mask"]["lsm_min"])
+    if cfg["mask"].get("zs_max_km") is not None:
+        m &= surface_height_km(lat, lon) < cfg["mask"]["zs_max_km"]
+    return m
+
+
+def cascade(f, levels, profiles, mask, weight, cfg):
+    """Sums of each profile over events in (box, RH bin), plus weights per level and event counts."""
+    c = cfg["cascade"]
+    e = edges(c["rh_bins"])
+    nb = len(e) - 1
+    boxes = c["boxes"]
+    sums = {v: np.zeros((len(boxes), nb, len(levels))) for v in c["profile_vars"]}
+    wsum = np.zeros((len(boxes), nb, len(levels)))
+    count = np.zeros((len(boxes), nb))
+    rh_idx = np.digitize(f["RH_2m"], e) - 1
+    for b, (name, box) in enumerate(boxes.items()):
+        inbox = (mask & (f["h_star500"] > box["h_star"][0]) & (f["h_star500"] < box["h_star"][1])
+                 & (f["h500"] > box["h"][0]) & (f["h500"] < box["h"][1]) & (rh_idx >= 0) & (rh_idx < nb))
+        i, j = np.nonzero(inbox)
+        k = rh_idx[i, j]
+        np.add.at(count[b], k, 1)
+        w = weight[i, j][:, None]
+        for v in c["profile_vars"]:
+            x = profiles[v][i, j]                                     # (n, level), NaN below ground
+            np.add.at(sums[v][b], k, np.nan_to_num(x) * w)
+            if v == c["profile_vars"][0]:
+                np.add.at(wsum[b], k, np.isfinite(x) * w)
+    return e, sums, wsum, count
 
 
 def run(year, event, buffer):
     cfg = load("figdata")
     acfg = load("analysis")
-    f, lat, lon = fields(year, event, buffer, cfg["lead"])
-    mask = analysis_mask(lat, lon)
+    f, lat, lon, levels, profiles = fields(year, event, buffer, cfg["lead"])
+    mask = figure_mask(lat, lon, cfg)
     sub = {"all": acfg["lat_band"], **acfg["lat_subbands"]}
     lat2 = np.broadcast_to(lat[:, None], mask.shape)
     weight = np.broadcast_to(np.cos(np.deg2rad(lat))[:, None], mask.shape)
@@ -110,10 +150,24 @@ def run(year, event, buffer):
         ds[f"map_{q}"].attrs.update(units=UNITS[q], feeds=FEEDS["map"],
                                     note="one value per cell per year; sum over years and divide by the count of finite values")
 
+    # Cascade composites (only boxes for this event type carry events, by construction)
+    ce, csum, cw, cn = cascade(f, levels, profiles, mask, weight, cfg)
+    names = list(cfg["cascade"]["boxes"])
+    own = [b.startswith(event + "_") for b in names]
+    ds = ds.assign_coords(case=names, level=levels)
+    ds["edges_rh_cascade"] = ("edge_rh_cascade", ce)
+    for v, s in csum.items():
+        ds[f"casc_sum_{v}"] = (("case", "bin_rh_cascade", "level"), np.where(np.array(own)[:, None, None], s, 0.0))
+        ds[f"casc_sum_{v}"].attrs.update(note="cos(lat)-weighted sum over events; divide by casc_weight",
+                                         feeds=FEEDS["cascade"])
+    ds["casc_weight"] = (("case", "bin_rh_cascade", "level"), np.where(np.array(own)[:, None, None], cw, 0.0))
+    ds["casc_count"] = (("case", "bin_rh_cascade"), np.where(np.array(own)[:, None], cn, 0.0))
+    ds["casc_count"].attrs.update(units="events", note="unweighted events per box and RH bin")
+
     n = {name: int(sel[name].sum()) for name in sub}
     ds.attrs.update(year=year, event_type=event, buffer_hours=buffer, lead=cfg["lead"],
                     lat_band=list(acfg["lat_band"]), mask_lsm_min=acfg["mask"]["lsm_min"],
-                    mask_zs_max_km=acfg["mask"]["zs_max_km"],
+                    mask_zs_max_km=str(cfg["mask"].get("zs_max_km")),
                     definitions="delta_FT = MSE_LPL - MSE_sat(500); delta_S = MSE2m - MSE_LPL; "
                                 "delta_total = MSE2m - MSE_sat(500)",
                     zlcl_reference="above ground (legacy d corrected on read, E07)",

@@ -47,11 +47,13 @@ class FigData:
         first = xr.load_dataset(folder() / f"figdata_{event}_b06_{sel[0][0]}.nc")
         self.attrs, self.edges = dict(first.attrs), {k[6:]: first[k].values for k in first.data_vars
                                                     if k.startswith("edges_")}
-        hist_vars = [k for k in first.data_vars if k.startswith(("h1_", "h2_"))]
+        hist_vars = [k for k in first.data_vars if k.startswith(("h1_", "h2_", "casc_"))]
         map_vars = [k for k in first.data_vars if k.startswith("map_")]
         self.hist = {k: first[k].values.copy() for k in hist_vars}
         self.var_attrs = {k: dict(first[k].attrs) for k in hist_vars + map_vars}
         self.subbands = list(first["subband"].values)
+        self.cases = list(first["case"].values) if "case" in first.coords else []
+        self.levels = first["level"].values if "level" in first.coords else None
         self.lat, self.lon = first["latitude"].values, first["longitude"].values
         self.in_mask = first["in_mask"].values.astype(bool)
         self.map_sum = {k: np.nan_to_num(first[k].values.astype("float64")) for k in map_vars}
@@ -138,3 +140,22 @@ def save(fig, out_dir, name):
     for ext in ("pdf", "png"):
         fig.savefig(out_dir / f"{name}.{ext}")
     return out_dir / f"{name}.png"
+
+
+def crop(h2, ex, ey, xlim, ylim):
+    """Sub-array of a 2-D histogram inside x/y limits, with its edges."""
+    i0, i1 = np.searchsorted(ex, xlim[0]), np.searchsorted(ex, xlim[1])
+    j0, j1 = np.searchsorted(ey, ylim[0]), np.searchsorted(ey, ylim[1])
+    return h2[i0:i1, j0:j1], ex[i0:i1 + 1], ey[j0:j1 + 1]
+
+
+def smooth(h2, sigma):
+    from scipy.ndimage import gaussian_filter
+    return gaussian_filter(h2, sigma=sigma)
+
+
+def mass_levels(h2, fractions):
+    """Density levels whose enclosed region holds each fraction of the total (e.g. 0.5, 0.75)."""
+    v = np.sort(h2.ravel())[::-1]
+    c = np.cumsum(v)
+    return {f: v[min(np.searchsorted(c, f * c[-1]), len(v) - 1)] for f in fractions}

@@ -20,7 +20,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import figdata as FD          # noqa: E402
 
-FIGURES = ["fig_excess_hist", "fig_excess_vs_rh", "fig_excess_maps", "fig_excess_vs_zlcl",
+FIGURES = ["fig_excess_hist", "fig_excess_vs_rh", "fig_excess_vs_rh_entrainment", "fig_cascade",
+           "fig_excess_maps", "fig_excess_vs_zlcl",
            "fig_ztop_fractions"]
 
 
