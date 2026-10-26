@@ -115,33 +115,6 @@ def figure_mask(lat, lon, cfg):
     return m
 
 
-def to_dp(levels, y, sp, p_lpl, y_lpl, y_surf, dp):
-    """Profiles (n, level) on a grid of pressure above the surface, Δp = SP − p (hPa).
-
-    Above the LPL: linear in log p between pressure levels. Between the LPL and the surface:
-    linear in log p from the LPL value to the surface value (h_2m for h); NaN if no surface value.
-    """
-    lnl = np.log(levels)
-    target = sp[:, None] - dp[None, :]
-    lnt = np.log(np.clip(target, levels.min(), None))
-    i = np.clip(np.searchsorted(lnl, lnt) - 1, 0, len(levels) - 2)
-    w = (lnt - lnl[i]) / (lnl[i + 1] - lnl[i])
-    r = np.arange(y.shape[0])[:, None]
-    out = y[r, i] * (1 - w) + y[r, i + 1] * w
-    # between the LPL and the ground (the LPL itself included when there is a surface value)
-    low = target >= p_lpl[:, None] if y_surf is not None else target > p_lpl[:, None]
-    if y_surf is None:
-        out[low] = np.nan
-    else:
-        span = np.log(sp) - np.log(p_lpl)
-        with np.errstate(invalid="ignore", divide="ignore"):
-            w2 = np.where(span[:, None] > 0, (lnt - np.log(p_lpl)[:, None]) / span[:, None], 1.0)
-        blend = y_lpl[:, None] * (1 - w2) + y_surf[:, None] * w2
-        out = np.where(low, blend, out)
-    out[target < levels.min()] = np.nan
-    return out
-
-
 def cascade(f, levels, profiles, mask, weight, cfg):
     """Sums of each profile over events in (box, RH bin), plus weights per level and event counts."""
     c = cfg["cascade"]
@@ -153,9 +126,6 @@ def cascade(f, levels, profiles, mask, weight, cfg):
     count = np.zeros((len(boxes), nb))
     scal = {v: np.zeros((len(boxes), nb)) for v in ("h_LPL", "p_LPL")}
     swt = np.zeros((len(boxes), nb))
-    dp = edges(c["dp_grid"])
-    dsum = {v: np.zeros((len(boxes), nb, len(dp))) for v in ("MSE", "MSE_sat")}
-    dw = {v: np.zeros((len(boxes), nb, len(dp))) for v in ("MSE", "MSE_sat")}
     rh_idx = np.digitize(f["RH_2m"], e) - 1
     for b, (name, box) in enumerate(boxes.items()):
         inbox = (mask & (f["h_star500"] > box["h_star"][0]) & (f["h_star500"] < box["h_star"][1])
@@ -172,14 +142,7 @@ def cascade(f, levels, profiles, mask, weight, cfg):
             np.add.at(sums[v][b], k, np.nan_to_num(x) * w)
             if v == c["profile_vars"][0]:
                 np.add.at(wsum[b], k, np.isfinite(x) * w)
-        # surface-relative composites: every event contributes at every Δp
-        sp, plpl = f["SP_hPa"][i, j], np.minimum(f["p_LPL"][i, j], f["SP_hPa"][i, j])
-        for v, surf in (("MSE", f["h_2m"][i, j]), ("MSE_sat", None)):
-            yl = f["h_LPL"][i, j] if v == "MSE" else None
-            x = to_dp(levels, profiles[v][i, j], sp, plpl, yl, surf, dp)
-            np.add.at(dsum[v][b], k, np.nan_to_num(x) * w)
-            np.add.at(dw[v][b], k, np.isfinite(x) * w)
-    return e, sums, wsum, count, scal, swt, dp, dsum, dw
+    return e, sums, wsum, count, scal, swt
 
 
 def strike(year, event, buffer, mask, weight, sub_sel, f, cfg):
@@ -306,7 +269,7 @@ def run(year, event, buffer):
                                          f"of finite values; NaN where SP <= {cfg['map_sp_min_hPa']} hPa")
 
     # Cascade composites (only boxes for this event type carry events, by construction)
-    ce, csum, cw, cn, cscal, cswt, dpg, dsum, dw = cascade(f, levels, profiles, mask, weight, cfg)
+    ce, csum, cw, cn, cscal, cswt = cascade(f, levels, profiles, mask, weight, cfg)
     names = list(cfg["cascade"]["boxes"])
     own = [b.startswith(event + "_") for b in names]
     ds = ds.assign_coords(case=names, level=levels)
@@ -320,13 +283,6 @@ def run(year, event, buffer):
     for v, s in cscal.items():
         ds[f"casc_sum_{v}"] = (("case", "bin_rh_cascade"), np.where(np.array(own)[:, None], s, 0.0))
     ds["casc_weight_scalar"] = (("case", "bin_rh_cascade"), np.where(np.array(own)[:, None], cswt, 0.0))
-    ds = ds.assign_coords(dp=dpg)
-    ds["dp"].attrs.update(units="hPa", long_name="pressure above the surface (SP - p)")
-    for v in dsum:
-        ds[f"casc_dp_sum_{v}"] = (("case", "bin_rh_cascade", "dp"), np.where(np.array(own)[:, None, None], dsum[v], 0.0))
-        ds[f"casc_dp_weight_{v}"] = (("case", "bin_rh_cascade", "dp"), np.where(np.array(own)[:, None, None], dw[v], 0.0))
-        ds[f"casc_dp_sum_{v}"].attrs.update(note="cos(lat)-weighted sum on the Δp grid; divide by casc_dp_weight; "
-                                                 "h uses h_2m at Δp = 0 and blends to h_LPL", feeds=FEEDS["cascade"])
     ds["casc_count"].attrs.update(units="events", note="unweighted events per box and RH bin")
 
     # Box hit flags per cell (sum over years = years hit), land in band, terrain kept

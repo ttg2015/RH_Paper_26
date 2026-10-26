@@ -55,7 +55,6 @@ class FigData:
         self.epsilon = first["epsilon"].values if "epsilon" in first.coords else None
         self.cases = list(first["case"].values) if "case" in first.coords else []
         self.levels = first["level"].values if "level" in first.coords else None
-        self.dp_levels = first["dp"].values if "dp" in first.coords else None
         self.lat, self.lon = first["latitude"].values, first["longitude"].values
         self.in_mask = first["in_mask"].values.astype(bool)
         self.map_sum = {k: np.nan_to_num(first[k].values.astype("float64")) for k in map_vars}
