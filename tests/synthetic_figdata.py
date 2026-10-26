@@ -133,6 +133,17 @@ def write(folder, years=(1985, 1986), n=100_000, seed=0):
             ds["casc_sum_h_LPL"] = (("case", "bin_rh_cascade"), hl)
             ds["casc_sum_p_LPL"] = (("case", "bin_rh_cascade"), 1000.0 * cn)
             ds["casc_weight_scalar"] = (("case", "bin_rh_cascade"), cn)
+            dpg = _edges(cfg["cascade"]["dp_grid"])
+            pdp = 1000.0 - dpg
+            ds = ds.assign_coords(dp=dpg)
+            for v in ("MSE", "MSE_sat"):
+                s = np.zeros((4, nb, len(dpg)))
+                for b in range(4):
+                    for kk in range(nb):
+                        prof = sums[v][b, kk] / max(cn[b, kk], 1e-9)
+                        s[b, kk] = np.interp(np.log(pdp), np.log(levels), prof) * cn[b, kk]
+                ds[f"casc_dp_sum_{v}"] = (("case", "bin_rh_cascade", "dp"), s)
+                ds[f"casc_dp_weight_{v}"] = (("case", "bin_rh_cascade", "dp"), np.repeat(cn[..., None], len(dpg), 2))
             ds["h2_hs500_h500"] = (("subband", "bin_energy", "bin_energy_y"),
                                    np.stack([np.histogram2d(rng.normal(337, 5, n), rng.normal(327, 5, n),
                                                             [E["energy"], E["energy"]])[0]] * 4))
