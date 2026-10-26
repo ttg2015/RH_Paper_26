@@ -14,13 +14,17 @@ class TestLaunch(unittest.TestCase):
         self.assertEqual((n("a"), n("b"), n("c1"), n("d"), n("e")), (480, 80, 960, 80, 40))
 
     def test_dry_run_matches_old_command(self):
-        job = expand(["d"], years=(1985, 1985), events=["T"])[0]
+        job = expand(["c2"], years=(1985, 1985), events=["T"])[0]     # c2 still runs the legacy script
         with tempfile.TemporaryDirectory() as tmp:
             written, missing = write_all([job], tmp)
             text = written[0].read_text()
-        self.assertIn("Extreme\\ Heat/Paper26_Cleaned/Scripts/d_Add_Derived.py 1985 T --buffer 6", text)
+        self.assertIn("Extreme\\ Heat/Paper26_Cleaned/Scripts/c2_stitch_year.py 1985 T --buffer 6", text)
         self.assertIn("#PBS -A UNYU0020", text)
-        self.assertIn("=== DONE d_T_b06_1985", text)
+        self.assertIn("=== DONE c2_T_b06_1985", text)
+
+    def test_ported_d_runs_from_repo(self):
+        job = expand(["d"], years=(1985, 1985), events=["T"])[0]
+        self.assertTrue(job.command().endswith("pipeline/d.py 1985 T --buffer 6"))
 
     def test_ported_stage_runs_from_repo(self):
         job = expand(["f"], years=(1985, 1985), events=["M"])[0]
