@@ -47,11 +47,12 @@ class FigData:
         first = xr.load_dataset(folder() / f"figdata_{event}_b06_{sel[0][0]}.nc")
         self.attrs, self.edges = dict(first.attrs), {k[6:]: first[k].values for k in first.data_vars
                                                     if k.startswith("edges_")}
-        hist_vars = [k for k in first.data_vars if k.startswith(("h1_", "h2_", "casc_", "lb_"))]
+        hist_vars = [k for k in first.data_vars if k.startswith(("h1_", "h2_", "casc_", "lb_", "strike_", "hit_"))]
         map_vars = [k for k in first.data_vars if k.startswith("map_")]
         self.hist = {k: first[k].values.copy() for k in hist_vars}
         self.var_attrs = {k: dict(first[k].attrs) for k in hist_vars + map_vars}
         self.subbands = list(first["subband"].values)
+        self.epsilon = first["epsilon"].values if "epsilon" in first.coords else None
         self.cases = list(first["case"].values) if "case" in first.coords else []
         self.levels = first["level"].values if "level" in first.coords else None
         self.lat, self.lon = first["latitude"].values, first["longitude"].values
@@ -62,8 +63,11 @@ class FigData:
         for y, _ in sel[1:]:
             ds = xr.load_dataset(folder() / f"figdata_{event}_b06_{y}.nc")
             for k in hist_vars:
-                self.hist[k] += ds[k].values
+                if k in ds:                    # e.g. strike_* only once stage f has run for that year
+                    self.hist[k] += ds[k].values
             for k in map_vars:
+                if k not in ds:
+                    continue
                 v = ds[k].values
                 self.map_sum[k] += np.nan_to_num(v)
                 self.map_n[k] += np.isfinite(v)
@@ -159,3 +163,23 @@ def mass_levels(h2, fractions):
     v = np.sort(h2.ravel())[::-1]
     c = np.cumsum(v)
     return {f: v[min(np.searchsorted(c, f * c[-1]), len(v) - 1)] for f in fractions}
+
+
+def composite(d, case, rh_lo, rh_hi):
+    """Cascade-box composite over an RH range: mean h, h*, Z per level, plus h_LPL and p_LPL."""
+    e = d.edges["rh_cascade"]
+    c = d.cases.index(case)
+    k = centers(e)
+    sel = (k > rh_lo) & (k < rh_hi)
+    w = d.hist["casc_weight"][c, sel].sum(0)
+    out = {}
+    with np.errstate(invalid="ignore", divide="ignore"):
+        for v in ("MSE", "MSE_sat", "Z", "T"):
+            if f"casc_sum_{v}" in d.hist:
+                out[v] = d.hist[f"casc_sum_{v}"][c, sel].sum(0) / w
+        ws = d.hist["casc_weight_scalar"][c, sel].sum() if "casc_weight_scalar" in d.hist else np.nan
+        for v in ("h_LPL", "p_LPL"):
+            if f"casc_sum_{v}" in d.hist:
+                out[v] = d.hist[f"casc_sum_{v}"][c, sel].sum() / ws
+    out["n"] = d.hist["casc_count"][c, sel].sum()
+    return out

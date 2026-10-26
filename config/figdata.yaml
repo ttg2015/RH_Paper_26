@@ -16,6 +16,7 @@ hist2d:                 # name: [x quantity, x bins, y quantity, y bins]
   h2_zlcl_dFT: [zLCL_2m, zlcl, delta_FT, delta]
   h2_hs500_h2m:  [h_star500, energy, h_2m, energy]       # surface layer correction figure
   h2_hs500_hlpl: [h_star500, energy, h_LPL, energy]
+  h2_hs500_h500: [h_star500, energy, h500, energy]       # box figures (RH demo panel a)
 maps: [delta_FT, delta_S, delta_total]
 map_sp_min_hPa: 500     # maps keep every cell (ocean too) with surface pressure above this
 
@@ -39,3 +40,16 @@ cascade:
     M_MLL: {h_star: [326.0, 329.0], h: [320.0, 323.0]}
     T_TPL: {h_star: [336.5, 339.5], h: [325.5, 328.5]}
     M_TPL: {h_star: [338.0, 342.0], h: [332.0, 335.0]}
+
+# Box hit maps (old Paper_Plots-2 cells 165–169): per cell, was the year's event inside the box?
+# CASCADE boxes come from `cascade.boxes`; APPENDIX boxes are the e_RH_bins / appendix set.
+hit_boxes:
+  T_TPL_app: {h_star: [336.5, 341.5], h: [325.0, 330.0]}
+  T_MLL_app: {h_star: [325.0, 330.0], h: [319.5, 324.5]}
+  M_TPL_app: {h_star: [337.5, 342.5], h: [332.5, 337.5]}
+  M_MLL_app: {h_star: [325.0, 330.0], h: [319.5, 324.5]}
+
+# Plume tops ("strike points") from stage f's Ztop files
+strike:
+  p_bins: [100.0, 1000.0, 5.0]     # hPa
+  eps_detail: 0.2                  # ε for the RH × p_top plane and the map

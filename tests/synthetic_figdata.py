@@ -127,5 +127,16 @@ def write(folder, years=(1985, 1986), n=100_000, seed=0):
                 ds[f"casc_sum_{v}"] = (("case", "bin_rh_cascade", "level"), s)
             ds["casc_weight"] = (("case", "bin_rh_cascade", "level"), cw)
             ds["casc_count"] = (("case", "bin_rh_cascade"), cn)
+            hl = np.zeros_like(cn)
+            for b, name in enumerate(boxes):
+                hl[b] = ((335 if "TPL" in name else 322) + 25 * rhc) * cn[b]
+            ds["casc_sum_h_LPL"] = (("case", "bin_rh_cascade"), hl)
+            ds["casc_sum_p_LPL"] = (("case", "bin_rh_cascade"), 1000.0 * cn)
+            ds["casc_weight_scalar"] = (("case", "bin_rh_cascade"), cn)
+            ds["h2_hs500_h500"] = (("subband", "bin_energy", "bin_energy_y"),
+                                   np.stack([np.histogram2d(rng.normal(337, 5, n), rng.normal(327, 5, n),
+                                                            [E["energy"], E["energy"]])[0]] * 4))
+            ds["h2_hs500_h500"].attrs.update(x_edges="edges_energy", y_edges="edges_energy")
+            ds["h2_hs500_h500_w"] = ds["h2_hs500_h500"]
             ds.attrs.update(year=year, event_type=e, n_events=str({"all": n}))
             ds.to_netcdf(folder / f"figdata_{e}_b06_{year}.nc")

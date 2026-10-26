@@ -81,8 +81,8 @@ class TestFigData(unittest.TestCase):
         g, f = _module(ROOT / "pipeline/g.py"), _module(ROOT / "pipeline/f.py")
         for y in self.years:
             for e in ("T", "M"):
+                f.run(y, e, 6, 100)            # f first: stage g reads the Ztop files
                 g.run(y, e, 6)
-                f.run(y, e, 6, 100)
         self.root = root
 
     def tearDown(self):
@@ -113,10 +113,13 @@ class TestFigData(unittest.TestCase):
         sys.argv = ["make_all.py", "--out", str(out)]
         make_all.main()
         index = (out / "index.html").read_text()
-        self.assertNotIn("failed</h2>", index)
+        # the toy grid has no T_TPL events at RH 45–55 %, so only the plume schematic may report a failure
+        self.assertEqual(index.count("failed</h2>"), index.count("fig_plume_schematic failed</h2>"))
         for name in ("excess_histograms", "excess_histograms_unweighted", "weighting_check", "surface_layer",
                      "excess_maps", "excess_vs_rh", "excess_vs_rh_entrainment", "lcl_binned",
-                     "convective_maps", "cascade", "excess_vs_zlcl", "wbt_increase", "ztop_fractions"):
+                     "convective_maps", "cascade", "excess_vs_zlcl", "wbt_increase", "ztop_fractions",
+                     "delta_s_ft_vs_rh", "rh_demo", "box_hits_tp_ml", "box_hits_locations",
+                     "strike_points", "strike_map"):
             self.assertTrue((out / f"{name}.png").exists(), name)
             self.assertTrue((out / f"{name}.pdf").exists(), name)
 

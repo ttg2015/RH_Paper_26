@@ -21,8 +21,9 @@ sys.path.insert(0, str(HERE))
 import figdata as FD          # noqa: E402
 
 FIGURES = ["fig_excess_hist", "fig_weighting_check", "fig_surface_layer", "fig_excess_maps",
-           "fig_excess_vs_rh", "fig_excess_vs_rh_entrainment", "fig_lcl_binned", "fig_convective_maps",
-           "fig_cascade", "fig_excess_vs_zlcl", "fig_wbt_increase", "fig_ztop_fractions"]
+           "fig_excess_vs_rh", "fig_excess_vs_rh_entrainment", "fig_delta_s_ft_vs_rh", "fig_rh_demo",
+           "fig_plume_schematic", "fig_lcl_binned", "fig_convective_maps", "fig_cascade", "fig_box_hits",
+           "fig_excess_vs_zlcl", "fig_wbt_increase", "fig_ztop_fractions", "fig_strike_points"]
 
 
 def git_hash():

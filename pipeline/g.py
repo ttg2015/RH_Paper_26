@@ -30,12 +30,13 @@ from tpl_mll import ztop                                          # noqa: E402
 UNITS = {"delta_FT": "kJ kg-1", "delta_S": "kJ kg-1", "delta_total": "kJ kg-1",
          "delta_below": "kJ kg-1", "delta_above": "kJ kg-1",
          "RH_2m": "1", "zLCL_2m": "m above ground", "zLCL_LPL": "m above ground",
-         "h_star500": "kJ kg-1", "h_2m": "kJ kg-1", "h_LPL": "kJ kg-1"}
+         "h_star500": "kJ kg-1", "h_2m": "kJ kg-1", "h_LPL": "kJ kg-1", "h500": "kJ kg-1"}
 FEEDS = {"h1": "Fig - Excess Histograms", "h2_rh_dFT": "Fig - Excess vs RH",
          "h2_rh_dS": "Excess vs RH (surface layer)", "h2_zlcl_dFT": "Fig - LCL-Binned Decomposition",
          "map": "Fig - Excess Maps", "cascade": "Fig - RH Cascades",
          "h2_hs500_h2m": "Surface layer correction (old TempThing_overlay_right)",
          "h2_hs500_hlpl": "Surface layer correction (old TempThing_overlay_right)",
+         "h2_hs500_h500": "RH conditioning demo panel (a); box hit-count figure",
          "h2_rh_zlcl2m_unstable": "Fig - LCL-Binned Decomposition (panel a)",
          "lb": "Fig - LCL-Binned Decomposition (panels b, c)"}
 
@@ -123,6 +124,8 @@ def cascade(f, levels, profiles, mask, weight, cfg):
     sums = {v: np.zeros((len(boxes), nb, len(levels))) for v in c["profile_vars"]}
     wsum = np.zeros((len(boxes), nb, len(levels)))
     count = np.zeros((len(boxes), nb))
+    scal = {v: np.zeros((len(boxes), nb)) for v in ("h_LPL", "p_LPL")}
+    swt = np.zeros((len(boxes), nb))
     rh_idx = np.digitize(f["RH_2m"], e) - 1
     for b, (name, box) in enumerate(boxes.items()):
         inbox = (mask & (f["h_star500"] > box["h_star"][0]) & (f["h_star500"] < box["h_star"][1])
@@ -131,12 +134,59 @@ def cascade(f, levels, profiles, mask, weight, cfg):
         k = rh_idx[i, j]
         np.add.at(count[b], k, 1)
         w = weight[i, j][:, None]
+        for v in scal:
+            np.add.at(scal[v][b], k, np.nan_to_num(f[v][i, j]) * weight[i, j])
+        np.add.at(swt[b], k, weight[i, j])
         for v in c["profile_vars"]:
             x = profiles[v][i, j]                                     # (n, level), NaN below ground
             np.add.at(sums[v][b], k, np.nan_to_num(x) * w)
             if v == c["profile_vars"][0]:
                 np.add.at(wsum[b], k, np.isfinite(x) * w)
-    return e, sums, wsum, count
+    return e, sums, wsum, count, scal, swt
+
+
+def strike(year, event, buffer, mask, weight, sub_sel, f, cfg):
+    """Plume-top distributions from stage f's Ztop file (None if it doesn't exist yet)."""
+    paths = load("paths")
+    zpath = Path(paths["work"]) / paths["outputs"]["ztop"] / f"ztop_{event}_b{buffer:02d}_{year}.nc"
+    if not zpath.exists():
+        return None
+    with xr.open_dataset(zpath) as z:
+        z = z[["p_top", "p_top_first", "category"]].load()
+    eps = z["epsilon"].values
+    pe = edges(cfg["strike"]["p_bins"])
+    out = xr.Dataset(coords={"epsilon": eps})
+    out["edges_ptop"] = ("edge_ptop", pe)
+    ptop = z["p_top"].transpose("epsilon", "latitude", "longitude").values
+    pfirst = z["p_top_first"].transpose("epsilon", "latitude", "longitude").values
+    cat = z["category"].transpose("epsilon", "latitude", "longitude").values
+    names = list(sub_sel)
+    for var, arr in (("strike_ptop", ptop), ("strike_ptop_first", pfirst)):
+        for wname, suf in ((False, ""), (True, "_w")):
+            h = np.zeros((len(names), len(eps), len(pe) - 1))
+            for s, name in enumerate(names):
+                for k in range(len(eps)):
+                    m = sub_sel[name] & np.isfinite(arr[k])
+                    h[s, k] = np.histogram(arr[k][m], pe, weights=weight[m] if wname else None)[0]
+            out[var + suf] = (("subband", "epsilon", "bin_ptop"), h)
+            out[var + suf].attrs.update(edges="edges_ptop", units="count" if not wname else "cos(lat)-weighted count",
+                                        feeds="Fig - Plume strike points")
+    ncat = np.zeros((len(names), len(eps), 5))
+    for s, name in enumerate(names):
+        for k in range(len(eps)):
+            m = sub_sel[name] & np.isfinite(cat[k])
+            ncat[s, k] = np.bincount(cat[k][m].astype(int), minlength=5)[:5]
+    out["strike_category"] = (("subband", "epsilon", "category_code"), ncat)
+    out["strike_category"].attrs.update(note="counts per category code: 1 pass, 2 too shallow, 3 too deep, 4 no buoyancy")
+    k = int(np.argmin(abs(eps - cfg["strike"]["eps_detail"])))
+    m = sub_sel["all"] & np.isfinite(ptop[k]) & np.isfinite(f["RH_2m"])
+    out["strike_rh_ptop"] = (("bin_rh", "bin_ptop"),
+                             np.histogram2d(f["RH_2m"][m], ptop[k][m], [edges(cfg["bins"]["rh"]), pe])[0])
+    out["strike_rh_ptop"].attrs.update(x_edges="edges_rh", y_edges="edges_ptop", eps_km=float(eps[k]))
+    out["map_strike_ptop"] = (("latitude", "longitude"), np.where(mask, ptop[k], np.nan).astype("float32"))
+    out["map_strike_ptop"].attrs.update(units="hPa", eps_km=float(eps[k]))
+    out.attrs["strike_eps_detail"] = float(eps[k])
+    return out
 
 
 def run(year, event, buffer):
@@ -219,7 +269,7 @@ def run(year, event, buffer):
                                          f"of finite values; NaN where SP <= {cfg['map_sp_min_hPa']} hPa")
 
     # Cascade composites (only boxes for this event type carry events, by construction)
-    ce, csum, cw, cn = cascade(f, levels, profiles, mask, weight, cfg)
+    ce, csum, cw, cn, cscal, cswt = cascade(f, levels, profiles, mask, weight, cfg)
     names = list(cfg["cascade"]["boxes"])
     own = [b.startswith(event + "_") for b in names]
     ds = ds.assign_coords(case=names, level=levels)
@@ -230,7 +280,27 @@ def run(year, event, buffer):
                                          feeds=FEEDS["cascade"])
     ds["casc_weight"] = (("case", "bin_rh_cascade", "level"), np.where(np.array(own)[:, None, None], cw, 0.0))
     ds["casc_count"] = (("case", "bin_rh_cascade"), np.where(np.array(own)[:, None], cn, 0.0))
+    for v, s in cscal.items():
+        ds[f"casc_sum_{v}"] = (("case", "bin_rh_cascade"), np.where(np.array(own)[:, None], s, 0.0))
+    ds["casc_weight_scalar"] = (("case", "bin_rh_cascade"), np.where(np.array(own)[:, None], cswt, 0.0))
     ds["casc_count"].attrs.update(units="events", note="unweighted events per box and RH bin")
+
+    # Box hit flags per cell (sum over years = years hit), land in band, terrain kept
+    boxes_all = {**cfg["cascade"]["boxes"], **cfg["hit_boxes"]}
+    for bname, box in boxes_all.items():
+        if not bname.startswith(event + "_"):
+            continue
+        inbox = (mask & (f["h_star500"] > box["h_star"][0]) & (f["h_star500"] < box["h_star"][1])
+                 & (f["h500"] > box["h"][0]) & (f["h500"] < box["h"][1]))
+        ds[f"hit_{bname}"] = (("latitude", "longitude"), inbox.astype("int8"))
+        ds[f"hit_{bname}"].attrs.update(note="1 if this year's event is in the box", box=str(box))
+
+    st = strike(year, event, buffer, mask, weight, sel, f, cfg)
+    if st is not None:
+        ds = xr.merge([ds, st.drop_vars(["latitude", "longitude"], errors="ignore")
+                       .assign_coords(latitude=lat, longitude=lon)], combine_attrs="override")
+    else:
+        print("  no Ztop file yet: strike-point products skipped (run stage f first)", flush=True)
 
     n = {name: int(sel[name].sum()) for name in sub}
     ds.attrs.update(year=year, event_type=event, buffer_hours=buffer, lead=cfg["lead"],
