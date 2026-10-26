@@ -78,6 +78,13 @@ def main():
         except Exception:
             failures.append((mod, traceback.format_exc(limit=3)))
             print(f"✗ {mod}: {traceback.format_exc(limit=1).strip().splitlines()[-1]}")
+    import json
+    (out / "facts.json").write_text(json.dumps(
+        {"made": datetime.now().isoformat(timespec="seconds"), "code": git_hash(), "years": a.years or "all",
+         "weighted": not a.unweighted,
+         "figures": {Path(it["path"]).stem: {"title": it["title"], "script": it["script"],
+                                             "facts": {k: str(v) for k, v in it["facts"].items()}} for it in items},
+         "failed": {m: err.strip().splitlines()[-1] for m, err in failures}}, indent=1, ensure_ascii=False))
     index = out / "index.html"
     index.write_text(page(items, failures, {"years": a.years or "all available", "weighted": not a.unweighted}))
     print(f"{len(items)} figures, {len(failures)} failed → {index}")

@@ -117,7 +117,9 @@ def make(out_dir, years=None, weighted=True, min_count=MIN_COUNT):
     for a in axes[1]:
         a.set_xlabel("MSE [kJ/kg]")
     styl = [plt.Line2D([0], [0], color="k", lw=2, label="$h$"),
-            plt.Line2D([0], [0], color="k", lw=2, ls="--", label=f"$h^*$ (≤{int(SAT_BELOW)} hPa)")]
+            plt.Line2D([0], [0], color="k", lw=2, ls="--", label=f"$h^*$ (≤{int(SAT_BELOW)} hPa)"),
+            plt.Line2D([0], [0], color="k", lw=1, alpha=0.45,
+                       label=f"thin: only {COVERAGE_FAINT:.0%}–{COVERAGE_MIN:.0%} of events reach this level")]
     for j in (0, 1):
         items = sorted(legend[j].items(), key=lambda kv: float(kv[0].split()[1].split("–")[0]))
         fig.legend(handles=styl + [plt.Line2D([0], [0], color=c, lw=2, label=l) for l, c in items],
