@@ -71,9 +71,10 @@ def make(out_dir, years=None, weighted=True):
         from matplotlib.transforms import blended_transform_factory
         tr = blended_transform_factory(ax.transData, ax.transAxes)
         for k, b in enumerate(buoy):
-            ax.text(eps[k], 1.01, f"{100 * b:.0f}%", transform=tr, ha="center", va="bottom", fontsize=7)
+            ax.text(eps[k], 1.01, f"{100 * b:.0f}", transform=tr, ha="center", va="bottom", fontsize=6,
+                    rotation=90 if len(eps) > 12 else 0)
         ax.set(ylim=(1000, 100), xlabel="ε [km⁻¹]", ylabel="plume top [hPa]")
-        ax.set_title(f"{style.EVENT_LABEL[e]}   (row above: % of events buoyant)", pad=16)
+        ax.set_title(f"{style.EVENT_LABEL[e]}   (numbers above: % of events buoyant)", pad=16)
         ax.legend(fontsize=7, loc="lower right", facecolor="0.3", labelcolor="w", framealpha=0.6)
         frac_window = h[kd][(pc >= lo) & (pc <= hi)].sum() / total[kd] if total[kd] else np.nan
         facts[f"{e}: median top at ε={eps[kd]:g}"] = f"{med[kd]:.0f} hPa (first crossing {medf[kd]:.0f} hPa)"
@@ -96,12 +97,11 @@ def make(out_dir, years=None, weighted=True):
     ax = fig.add_subplot(gs[1, 1])
     h2 = sum(d.hist["strike_rh_ptop"] for d in data.values())
     ex = d0.edges["rh"]
-    h2, ex = FD.coarsen(h2, ex, 2, axis=0)
     h2, ey = FD.coarsen(h2, pe, P_COARSEN, axis=1)
     im = ax.pcolormesh(ex, ey, np.ma.masked_equal(h2.T, 0), cmap="Purples", shading="flat")
     fig.colorbar(im, ax=ax, label="events", pad=0.02)
     pcs = FD.centers(ey)
-    med = np.array([quantile_p(row, pcs, 0.5) if row.sum() >= 20 else np.nan for row in h2])
+    med = np.array([quantile_p(row, pcs, 0.5) if row.sum() >= 20 else np.nan for row in h2])   # 0.5 % RH bins
     ax.plot(FD.centers(ex), med, color="k", lw=2, label="median top")
     for p in (lo, hi):
         ax.axhline(p, color="#ff7043", lw=1.5, ls="--")
