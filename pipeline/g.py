@@ -286,7 +286,11 @@ def run(year, event, buffer):
                                          f"of finite values; NaN where SP <= {cfg['map_sp_min_hPa']} hPa")
 
     # Cascade composites (only boxes for this event type carry events, by construction)
-    ce, csum, cw, cn, cscal, cswt = cascade(f, levels, profiles, mask, weight, cfg)
+    # cascade composites keep the terrain cut of the old figure and stage e (profiles over high
+    # ground leave the lowest levels below ground); the other figure data keep all terrain
+    zcut = cfg["cascade"].get("zs_max_km")
+    cmask = mask & (surface_height_km(lat, lon) < zcut) if zcut is not None else mask
+    ce, csum, cw, cn, cscal, cswt = cascade(f, levels, profiles, cmask, weight, cfg)
     names = list(cfg["cascade"]["boxes"])
     own = [b.startswith(event + "_") for b in names]
     ds = ds.assign_coords(case=names, level=levels)

@@ -24,7 +24,8 @@ TITLES = [[r"Middle Latitude Like ($T_{2m}$ Max)", r"Middle Latitude Like ($h_{2
 RH_COARSEN = 5                  # 1 % → 5 % bins
 MIN_COUNT = 500
 SAT_BELOW = 500.0               # h* drawn at and above this level only
-COVERAGE_MIN = 0.9              # share of a bin's events that must have the level above ground
+COVERAGE_MIN = 0.9              # solid line where at least this share of the bin's events has the level
+COVERAGE_FAINT = 0.5            # thin faded line down to this share; below it nothing is drawn
 XLIM, YLIM = (315, 355), (1000, 100)
 PLANE = (310, 360)
 
@@ -43,7 +44,8 @@ def composites(d):
         cover = w / wt[..., None]
         for v in ("MSE", "MSE_sat"):
             s, _ = FD.coarsen(d.hist[f"casc_sum_{v}"], e, RH_COARSEN, axis=1)
-            out[v] = np.where(cover >= COVERAGE_MIN, s / w, np.nan)
+            out[v] = np.where(cover >= COVERAGE_FAINT, s / w, np.nan)
+    out["cover"] = cover
     return out, n, e5
 
 
@@ -93,7 +95,14 @@ def make(out_dir, years=None, weighted=True, min_count=MIN_COUNT):
                 rh = 0.5 * (e5[b] + e5[b + 1])
                 col = cmap(0.15 + 0.85 * rh)
                 lab = f"RH {e5[b] * 100:.0f}–{e5[b + 1] * 100:.0f}%"
-                ax.plot(comp["MSE"][c, b], d.levels, color=col, lw=2)
+                cov = comp["cover"][c, b]
+                solid = cov >= COVERAGE_MIN
+                ax.plot(np.where(solid, comp["MSE"][c, b], np.nan), d.levels, color=col, lw=2)
+                edge = np.where(solid)[0]
+                faint = ~solid.copy()
+                if edge.size:
+                    faint[edge.max()] = True                      # join at the deepest solid level
+                ax.plot(np.where(faint, comp["MSE"][c, b], np.nan), d.levels, color=col, lw=1, alpha=0.45)
                 sat = np.where(d.levels <= SAT_BELOW, comp["MSE_sat"][c, b], np.nan)
                 ax.plot(sat, d.levels, color=col, lw=2, ls="--")
                 legend[j].setdefault(lab, col)
@@ -118,8 +127,9 @@ def make(out_dir, years=None, weighted=True, min_count=MIN_COUNT):
     fig.suptitle(f"RH cascades · {d0.label()} · {style.band_text(FD.load('analysis'), True)}", fontsize=12)
     fig.subplots_adjust(bottom=0.13, top=0.95)
     facts.update(years=d0.label(), bins="5 % RH", boxes="config/figdata.yaml → cascade.boxes",
-                 note=f"cos(lat)-weighted means; a level is drawn only where ≥ {COVERAGE_MIN:.0%} of the bin's "
-                      "events have it above ground; h* drawn at and above 500 hPa")
+                 note=f"cos(lat)-weighted means; terrain < {FD.load('figdata')['cascade'].get('zs_max_km')} km; "
+                      f"solid where ≥ {COVERAGE_MIN:.0%} of the bin's events have the level above ground, faded "
+                      f"down to {COVERAGE_FAINT:.0%}; h* drawn at and above 500 hPa")
     return [{"path": FD.save(fig, out_dir, "cascade"), "title": "RH Cascades", "facts": facts,
              "script": "figures/fig_cascade.py"}]
 
