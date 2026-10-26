@@ -32,7 +32,7 @@ UNITS = {"delta_FT": "kJ kg-1", "delta_S": "kJ kg-1", "delta_total": "kJ kg-1",
          "RH_2m": "1", "zLCL_2m": "m above ground", "zLCL_LPL": "m above ground",
          "h_star500": "kJ kg-1", "h_2m": "kJ kg-1", "h_LPL": "kJ kg-1", "h500": "kJ kg-1"}
 FEEDS = {"h1": "Fig - Excess Histograms", "h2_rh_dFT": "Fig - Excess vs RH",
-         "h2_rh_dS": "Excess vs RH (surface layer)", "h2_zlcl_dFT": "Fig - LCL-Binned Decomposition",
+         "h2_rh_dS": "Excess vs RH (surface layer)", "h2_rh_dtotal": "Excess histograms by RH (dry vs moist)", "h2_zlcl_dFT": "Fig - LCL-Binned Decomposition",
          "map": "Fig - Excess Maps", "cascade": "Fig - RH Cascades",
          "h2_hs500_h2m": "Surface layer correction (old TempThing_overlay_right)",
          "h2_hs500_hlpl": "Surface layer correction (old TempThing_overlay_right)",
@@ -177,6 +177,23 @@ def strike(year, event, buffer, mask, weight, sub_sel, f, cfg):
             m = sub_sel[name] & np.isfinite(cat[k])
             ncat[s, k] = np.bincount(cat[k][m].astype(int), minlength=5)[:5]
     out["strike_category"] = (("subband", "epsilon", "category_code"), ncat)
+    # RH-resolved versions (all of the band), for splitting dry vs moist at plot time
+    re_ = edges(cfg["strike"]["rh_bins"])
+    out["edges_rh_strike"] = ("edge_rh_strike", re_)
+    rh = f["RH_2m"]
+    base = sub_sel["all"] & np.isfinite(rh)
+    for wname, suf in ((False, ""), (True, "_w")):
+        hp = np.zeros((len(eps), len(re_) - 1, len(pe) - 1))
+        hc = np.zeros((len(eps), len(re_) - 1, 5))
+        for k in range(len(eps)):
+            m = base & np.isfinite(ptop[k])
+            hp[k] = np.histogram2d(rh[m], ptop[k][m], [re_, pe], weights=weight[m] if wname else None)[0]
+            m = base & np.isfinite(cat[k])
+            idx = np.clip(np.digitize(rh[m], re_) - 1, 0, len(re_) - 2)
+            np.add.at(hc[k], (idx, cat[k][m].astype(int)), weight[m] if wname else 1.0)
+        out["strike_ptop_rh" + suf] = (("epsilon", "bin_rh_strike", "bin_ptop"), hp)
+        out["strike_category_rh" + suf] = (("epsilon", "bin_rh_strike", "category_code"), hc)
+    out["strike_ptop_rh"].attrs.update(x_edges="edges_rh_strike", y_edges="edges_ptop")
     out["strike_category"].attrs.update(note="counts per category code: 1 pass, 2 too shallow, 3 too deep, 4 no buoyancy")
     k = int(np.argmin(abs(eps - cfg["strike"]["eps_detail"])))
     m = sub_sel["all"] & np.isfinite(ptop[k]) & np.isfinite(f["RH_2m"])

@@ -183,3 +183,42 @@ def composite(d, case, rh_lo, rh_hi):
                 out[v] = d.hist[f"casc_sum_{v}"][c, sel].sum() / ws
     out["n"] = d.hist["casc_count"][c, sel].sum()
     return out
+
+
+# --- Dry vs moist split at RH0 ------------------------------------------------------
+DRY_COLOR, MOIST_COLOR = "#B9770E", "#117A65"
+
+
+def rh0(data, weighted=True, product="h2_rh_dFT", coarsen_rh=2, min_events=20):
+    """RH where the pooled (T + M) mean δ_FT crosses zero, from the fine RH × δ_FT counts.
+    Same definition as the Excess vs RH figure, so every split uses the printed RH0."""
+    d0 = next(iter(data.values()))
+    h = sum(d.h(product, weighted=weighted) for d in data.values())
+    hx, ex = coarsen(h, d0.edges_of(product, "x"), coarsen_rh, axis=0)
+    m, n = binned_mean(hx, ex, d0.edges_of(product, "y"))
+    m[n < min_events] = np.nan
+    x = centers(ex)
+    return zero_crossing(x[::-1], m[::-1])
+
+
+def split_rh(counts, rh_edges, rh_split, axis=0):
+    """Sum an array over RH bins below and above rh_split (bin centres). Returns (dry, moist)."""
+    c = centers(rh_edges)
+    dry = np.take(counts, np.nonzero(c < rh_split)[0], axis=axis).sum(axis=axis)
+    moist = np.take(counts, np.nonzero(c >= rh_split)[0], axis=axis).sum(axis=axis)
+    return dry, moist
+
+
+def split_label(rh_split):
+    return {"dry": f"dry (RH < {rh_split:.2f})", "moist": f"moist (RH ≥ {rh_split:.2f})"}
+
+
+RH0_FALLBACK = 0.335              # previous paper value, used only if the crossing can't be found
+
+
+def rh_split_value(data, weighted=True):
+    """(RH0 for the dry/moist split, where it came from)."""
+    r0 = rh0(data, weighted)
+    if np.isfinite(r0):
+        return r0, "pooled mean δ_FT zero crossing"
+    return RH0_FALLBACK, f"fallback {RH0_FALLBACK} (no zero crossing found in these data)"

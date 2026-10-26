@@ -13,6 +13,7 @@ hist1d: [delta_FT, delta_S, delta_total]
 hist2d:                 # name: [x quantity, x bins, y quantity, y bins]
   h2_rh_dFT:   [RH_2m, rh, delta_FT, delta]
   h2_rh_dS:    [RH_2m, rh, delta_S, delta]
+  h2_rh_dtotal: [RH_2m, rh, delta_total, delta]   # dry vs moist histograms
   h2_zlcl_dFT: [zLCL_2m, zlcl, delta_FT, delta]
   h2_hs500_h2m:  [h_star500, energy, h_2m, energy]       # surface layer correction figure
   h2_hs500_hlpl: [h_star500, energy, h_LPL, energy]
@@ -53,3 +54,4 @@ hit_boxes:
 strike:
   p_bins: [100.0, 1000.0, 5.0]     # hPa
   eps_detail: 0.2                  # ε for the RH × p_top plane and the map
+  rh_bins: [0.0, 1.05, 0.01]       # RH resolution of plume tops and categories (dry vs moist split)

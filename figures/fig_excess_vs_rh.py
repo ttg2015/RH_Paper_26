@@ -74,7 +74,7 @@ def make(out_dir, years=None, weighted=True):
 
     x, m, _ = mean_curve(H["T"] + H["M"], ex, ey)
     ax.plot(x, m, color="gray", lw=1.5, marker=".", ms=6, alpha=0.9, zorder=5)
-    rh0 = FD.zero_crossing(x[::-1], m[::-1])
+    rh0 = FD.rh0(data, weighted)                       # same helper the dry/moist split uses
     if np.isfinite(rh0):
         ax.plot(rh0, 0, "o", ms=7, mfc="white", mec="k", zorder=6)
         ax.annotate(f"RH$_0$ = {rh0:.3f}", (rh0, 0), xytext=(8, -16), textcoords="offset points", fontsize=9)

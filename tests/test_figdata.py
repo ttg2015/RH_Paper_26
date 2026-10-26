@@ -119,7 +119,8 @@ class TestFigData(unittest.TestCase):
                      "excess_maps", "excess_vs_rh", "excess_vs_rh_entrainment", "lcl_binned",
                      "convective_maps", "cascade", "excess_vs_zlcl", "wbt_increase", "ztop_fractions",
                      "delta_s_ft_vs_rh", "rh_demo", "box_hits_tp_ml", "box_hits_locations",
-                     "strike_points", "strike_map"):
+                     "strike_points", "strike_map", "collapse_rh", "excess_histograms_rh",
+                     "strike_points_rh", "ztop_fractions_rh"):
             self.assertTrue((out / f"{name}.png").exists(), name)
             self.assertTrue((out / f"{name}.pdf").exists(), name)
 
