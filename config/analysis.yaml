@@ -45,6 +45,11 @@ log_fit:
   rh0: from_crossing
   rh_window: null
 
-# E12: one definition of the free-tropospheric energy boxes (h500, h*500) in kJ/kg.
-# TODO: copy the values from e_RH_bins.py lines 63-72 when porting stage e.
-boxes: {}
+# E12: the free-tropospheric energy boxes used by stage e (h = h500, h_star = h*500, kJ/kg),
+# copied unchanged from e_RH_bins.py CASE_SPEC. The figure cascade boxes (figdata.yaml) are the
+# Cascade_Summary set and still differ: choosing one set for the paper is open (E12).
+boxes:
+  T_MLL: {h: [319.5, 324.5], h_star: [325.0, 330.0], label: "Mid-latitudes (T-events)"}
+  M_MLL: {h: [319.5, 324.5], h_star: [325.0, 330.0], label: "Mid-latitudes (WBT-events)"}
+  T_TPL: {h: [325.0, 330.0], h_star: [336.5, 341.5], label: "Tropics (T-events)"}
+  M_TPL: {h: [332.5, 337.5], h_star: [337.5, 342.5], label: "Tropics (WBT-events)"}
