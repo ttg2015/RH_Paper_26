@@ -1,6 +1,6 @@
 """Surface RH raises both terms: mean δ_S and δ_FT (and their sum) against surface RH.
 
-Port of Paper_Plots-2 cell 160 (deltaS_deltaFT_vs_RH.pdf), T and M pooled, cos(lat)-weighted means
+Port of Paper_Plots-2 cell 160 (deltaS_deltaFT_vs_RH.pdf), T and M pooled, plain (unweighted) means
 in 12 RH bins. Window: RH_LO–RH_HI (old values lived in the missing delta_ft_budget module; the
 defaults here are stated on the figure). Old version also restricted to SP 995–1015 hPa; this one
 keeps all terrain, as for the other figure data.

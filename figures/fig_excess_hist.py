@@ -15,6 +15,8 @@ from matplotlib.lines import Line2D
 import figdata as FD
 import style
 
+WEIGHTED = True                  # a 1D distribution over the globe: cos(lat) weights (E02)
+
 COARSEN = 1                      # native 0.25 kJ/kg bins
 HIST_RANGE = (-20, 30)
 QUANTITIES = [("delta_total", r"Total Excess: $\mathbf{\delta_{\mathrm{total}}}$"),

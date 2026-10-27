@@ -56,14 +56,14 @@ th{{text-align:left;color:var(--muted);font-weight:500;padding:2px 14px 2px 0}} 
 </style>
 <h1>Paper26 figures</h1>
 <p class="src">Made {datetime.now():%Y-%m-%d %H:%M} · code {git_hash()} · years {opts['years']} ·
-{'cos(lat) weighted' if opts['weighted'] else 'unweighted'}</p>
+{'1D histograms cos(lat) weighted, all other figures unweighted' if opts['weighted'] else 'all unweighted'}</p>
 {''.join(cards)}"""
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--years")
-    ap.add_argument("--unweighted", action="store_true")
+    ap.add_argument("--unweighted", action="store_true", help="also draw the 1D histograms unweighted")
     ap.add_argument("--out", default=str(HERE.parent / "runs" / "figs"))
     ap.add_argument("--only", nargs="+", help="subset of figure modules")
     a = ap.parse_args()
@@ -72,7 +72,8 @@ def main():
     for mod in a.only or FIGURES:
         try:
             m = importlib.import_module(mod)
-            got = m.make(out, FD.years_arg(a.years), weighted=not a.unweighted)
+            # cos(lat) weights only for figures that declare WEIGHTED = True (the 1D distributions)
+            got = m.make(out, FD.years_arg(a.years), weighted=getattr(m, "WEIGHTED", False) and not a.unweighted)
             items += got
             print(f"✓ {mod}")
         except Exception:

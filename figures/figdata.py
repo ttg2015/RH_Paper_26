@@ -125,14 +125,20 @@ def zero_crossing(x, y):
 
 
 def cli(make, doc):
-    """Shared command line for figure scripts: --years, --weighted/--unweighted, --out."""
+    """Shared command line for figure scripts: --years, --weighted/--unweighted, --out.
+
+    Default weighting comes from the script's WEIGHTED constant (False unless the figure is a
+    1D distribution: only those use cos(lat) weights, E02)."""
     import argparse
     ap = argparse.ArgumentParser(description=doc.split("\n")[0])
     ap.add_argument("--years", help="e.g. 1980-2019 (default: all figdata files)")
-    ap.add_argument("--unweighted", action="store_true", help="plain counts instead of cos(lat) weights")
+    default = make.__globals__.get("WEIGHTED", False)
+    ap.add_argument("--weighted", action="store_true", help="force cos(lat) weights")
+    ap.add_argument("--unweighted", action="store_true", help="force plain counts")
     ap.add_argument("--out", default=str(REPO / "runs" / "figs"))
     a = ap.parse_args()
-    for item in make(Path(a.out), years_arg(a.years), weighted=not a.unweighted):
+    w = True if a.weighted else False if a.unweighted else default
+    for item in make(Path(a.out), years_arg(a.years), weighted=w):
         print(f"Wrote {item['path']}")
         for k, v in item["facts"].items():
             print(f"  {k}: {v}")
@@ -189,9 +195,10 @@ def composite(d, case, rh_lo, rh_hi):
 DRY_COLOR, MOIST_COLOR = "#B9770E", "#117A65"
 
 
-def rh0(data, weighted=True, product="h2_rh_dFT", coarsen_rh=2, min_events=20):
+def rh0(data, weighted=False, product="h2_rh_dFT", coarsen_rh=2, min_events=20):
     """RH where the pooled (T + M) mean δ_FT crosses zero, from the fine RH × δ_FT counts.
-    Same definition as the Excess vs RH figure, so every split uses the printed RH0."""
+    Unweighted: RH0 is a property of the RH–δ_FT relationship, not an area statistic, so every
+    figure uses the same number whatever its own weighting."""
     d0 = next(iter(data.values()))
     h = sum(d.h(product, weighted=weighted) for d in data.values())
     hx, ex = coarsen(h, d0.edges_of(product, "x"), coarsen_rh, axis=0)
@@ -216,9 +223,9 @@ def split_label(rh_split):
 RH0_FALLBACK = 0.335              # previous paper value, used only if the crossing can't be found
 
 
-def rh_split_value(data, weighted=True):
-    """(RH0 for the dry/moist split, where it came from)."""
-    r0 = rh0(data, weighted)
+def rh_split_value(data, weighted=None):
+    """(RH0 for the dry/moist split, where it came from). Always the unweighted RH0."""
+    r0 = rh0(data)
     if np.isfinite(r0):
         return r0, "pooled mean δ_FT zero crossing"
     return RH0_FALLBACK, f"fallback {RH0_FALLBACK} (no zero crossing found in these data)"

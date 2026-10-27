@@ -36,6 +36,7 @@ mask:
 cascade:
   rh_bins: [0.0, 1.0, 0.01]        # coarsen to 5 % at plot time
   zs_max_km: 0.5                   # terrain cut for the composites only (as old cascade and stage e)
+  weighted: false                  # plain means; composites are conditional (sample space), not area statistics
   profile_vars: [MSE, MSE_sat, T, Z]
   boxes:
     T_MLL: {h_star: [326.0, 329.0], h: [320.0, 323.0]}

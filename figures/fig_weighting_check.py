@@ -14,6 +14,8 @@ import numpy as np
 import figdata as FD
 import style
 
+WEIGHTED = True                  # a 1D distribution over the globe: cos(lat) weights (E02)
+
 QUANTITIES = ["delta_total", "delta_S", "delta_FT"]
 COLORS = {"T": "#C0392B", "M": "#2471A3"}
 

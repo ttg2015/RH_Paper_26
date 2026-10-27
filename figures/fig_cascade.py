@@ -1,7 +1,7 @@
 """RH Cascades: RH-binned composite MSE profiles in four free-tropospheric energy boxes.
 
 Port of plot_cascade (Cascade_Summary cell 14) onto stage g figure data: Cleaned 1980–2019 only
-(fixes E03), boxes from config/figdata.yaml, cos(lat)-weighted means, below-ground levels left
+(fixes E03), boxes from config/figdata.yaml, plain (unweighted) means, below-ground levels left
 out of each composite. Solid h, dashed h* (at and above 500 hPa only); one colour per RH bin.
 
 Surface handling: a composite level is drawn only where at least COVERAGE_MIN of the bin's events
@@ -126,10 +126,11 @@ def make(out_dir, years=None, weighted=True, min_count=MIN_COUNT):
                    loc="lower center", bbox_to_anchor=(0.27 if j == 0 else 0.75, 0.0), ncol=4,
                    title="$T_{2m}$ RH bins" if j == 0 else "$h_{2m}$ RH bins", fontsize=9, frameon=True)
     d0 = data["T"]
-    fig.suptitle(f"RH cascades · {d0.label()} · {style.band_text(FD.load('analysis'), True)}", fontsize=12)
+    w = FD.load("figdata")["cascade"].get("weighted", False)
+    fig.suptitle(f"RH cascades · {d0.label()} · {style.band_text(FD.load('analysis'), w)}", fontsize=12)
     fig.subplots_adjust(bottom=0.13, top=0.95)
     facts.update(years=d0.label(), bins="5 % RH", boxes="config/figdata.yaml → cascade.boxes",
-                 note=f"cos(lat)-weighted means; terrain < {FD.load('figdata')['cascade'].get('zs_max_km')} km; "
+                 note=f"{'cos(lat)-weighted' if FD.load('figdata')['cascade'].get('weighted', False) else 'plain'} means; terrain < {FD.load('figdata')['cascade'].get('zs_max_km')} km; "
                       f"solid where ≥ {COVERAGE_MIN:.0%} of the bin's events have the level above ground, faded "
                       f"down to {COVERAGE_FAINT:.0%}; h* drawn at and above 500 hPa")
     return [{"path": FD.save(fig, out_dir, "cascade"), "title": "RH Cascades", "facts": facts,

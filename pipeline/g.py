@@ -290,7 +290,10 @@ def run(year, event, buffer):
     # ground leave the lowest levels below ground); the other figure data keep all terrain
     zcut = cfg["cascade"].get("zs_max_km")
     cmask = mask & (surface_height_km(lat, lon) < zcut) if zcut is not None else mask
-    ce, csum, cw, cn, cscal, cswt = cascade(f, levels, profiles, cmask, weight, cfg)
+    # composites are conditional means (a sample space, not an area statistic): plain means unless
+    # figdata.yaml asks for cos(lat) weights
+    cweight = weight if cfg["cascade"].get("weighted", False) else np.ones_like(weight)
+    ce, csum, cw, cn, cscal, cswt = cascade(f, levels, profiles, cmask, cweight, cfg)
     names = list(cfg["cascade"]["boxes"])
     own = [b.startswith(event + "_") for b in names]
     ds = ds.assign_coords(case=names, level=levels)
