@@ -26,6 +26,7 @@ from tpl_mll.config import load                                  # noqa: E402
 from tpl_mll.corrections import z_lcl_above_ground_legacy        # noqa: E402
 from tpl_mll.masks import _invariant, surface_height_km          # noqa: E402
 from tpl_mll import ztop                                          # noqa: E402
+NCODE = len(ztop.CATEGORIES)                                       # category codes 0..5
 
 UNITS = {"delta_FT": "kJ kg-1", "delta_S": "kJ kg-1", "delta_total": "kJ kg-1",
          "delta_below": "kJ kg-1", "delta_above": "kJ kg-1",
@@ -171,11 +172,11 @@ def strike(year, event, buffer, mask, weight, sub_sel, f, cfg):
             out[var + suf] = (("subband", "epsilon", "bin_ptop"), h)
             out[var + suf].attrs.update(edges="edges_ptop", units="count" if not wname else "cos(lat)-weighted count",
                                         feeds="Fig - Plume strike points")
-    ncat = np.zeros((len(names), len(eps), 5))
+    ncat = np.zeros((len(names), len(eps), NCODE))
     for s, name in enumerate(names):
         for k in range(len(eps)):
             m = sub_sel[name] & np.isfinite(cat[k])
-            ncat[s, k] = np.bincount(cat[k][m].astype(int), minlength=5)[:5]
+            ncat[s, k] = np.bincount(cat[k][m].astype(int), minlength=NCODE)[:NCODE]
     out["strike_category"] = (("subband", "epsilon", "category_code"), ncat)
     # RH-resolved versions (all of the band), for splitting dry vs moist at plot time
     re_ = edges(cfg["strike"]["rh_bins"])
@@ -184,7 +185,7 @@ def strike(year, event, buffer, mask, weight, sub_sel, f, cfg):
     base = sub_sel["all"] & np.isfinite(rh)
     for wname, suf in ((False, ""), (True, "_w")):
         hp = np.zeros((len(eps), len(re_) - 1, len(pe) - 1))
-        hc = np.zeros((len(eps), len(re_) - 1, 5))
+        hc = np.zeros((len(eps), len(re_) - 1, NCODE))
         for k in range(len(eps)):
             m = base & np.isfinite(ptop[k])
             hp[k] = np.histogram2d(rh[m], ptop[k][m], [re_, pe], weights=weight[m] if wname else None)[0]
@@ -194,7 +195,7 @@ def strike(year, event, buffer, mask, weight, sub_sel, f, cfg):
         out["strike_ptop_rh" + suf] = (("epsilon", "bin_rh_strike", "bin_ptop"), hp)
         out["strike_category_rh" + suf] = (("epsilon", "bin_rh_strike", "category_code"), hc)
     out["strike_ptop_rh"].attrs.update(x_edges="edges_rh_strike", y_edges="edges_ptop")
-    out["strike_category"].attrs.update(note="counts per category code: 1 pass, 2 too shallow, 3 too deep, 4 no buoyancy")
+    out["strike_category"].attrs.update(note="counts per category code: 1 pass, 2 too shallow, 3 too deep, 4 stable, 5 diluted out")
     k = int(np.argmin(abs(eps - cfg["strike"]["eps_detail"])))
     m = sub_sel["all"] & np.isfinite(ptop[k]) & np.isfinite(f["RH_2m"])
     out["strike_rh_ptop"] = (("bin_rh", "bin_ptop"),

@@ -16,7 +16,19 @@ from tpl_mll import ztop                          # noqa: E402
 from tpl_mll.masks import analysis_mask           # noqa: E402
 
 CAT = {1: ("pass", "#43a047"), 2: ("too shallow", "#fb8c00"), 3: ("too deep", "#5e35b1"),
-       4: ("no buoyancy", "#b0bec5")}
+       4: ("stable", "#b0bec5"), 5: ("diluted out", "#e57373")}
+UNSTABLE = [2, 1, 3, 5]      # every category except stable
+ORDER = [3, 1, 2, 5, 4]      # stacking order bottom → top: too deep, pass, too shallow, diluted out, stable
+
+
+def of_unstable(fr):
+    """Fractions of all events → (fractions of the unstable events, stable fraction of all).
+
+    Unstable = buoyant somewhere at ε = 0. It is the same set at every ε, so the shares of
+    pass, too shallow, too deep and diluted out add to 1 at each ε with a fixed denominator.
+    """
+    unstable = 1 - fr[4]
+    return {c: fr[c] / np.where(unstable > 0, unstable, np.nan) for c in UNSTABLE}, fr[4]
 
 
 def _dir(key):
@@ -52,15 +64,13 @@ def fractions(datasets, weighted=False):
 
 
 def fig_fractions(by_event, weighted=False):
-    """Figure A prototype: stacked category fractions vs ε, plus pass / buoyant."""
+    """Figure A prototype: stacked category fractions vs ε, plus pass / unstable."""
     fig, axes = plt.subplots(1, len(by_event), figsize=(5 * len(by_event), 3.6), squeeze=False)
     for ax, (event, dss) in zip(axes[0], by_event.items()):
         eps, fr = fractions(dss, weighted)
         ax.stackplot(eps, *[100 * fr[c] for c in CAT], labels=[CAT[c][0] for c in CAT],
                      colors=[CAT[c][1] for c in CAT], alpha=0.85)
-        buoy = 1 - fr[4]
-        ax.plot(eps, 100 * fr[1] / np.where(buoy > 0, buoy, np.nan), "k-o", ms=3,
-                label="pass / buoyant")
+        ax.plot(eps, 100 * of_unstable(fr)[0][1], "k-o", ms=3, label="pass / unstable")
         ax.set(xlabel="ε [1/km]", ylabel="% of events", ylim=(0, 100),
                title=f"{event} events · {len(dss)} year(s){' · cos(lat) weighted' if weighted else ''}")
     axes[0][0].legend(fontsize=7, loc="upper right")
@@ -73,9 +83,9 @@ def table(by_event):
     for event, dss in by_event.items():
         eps, fr = fractions(dss)
         for i, e in enumerate(eps):
-            buoy = 1 - fr[4][i]
+            unstable = 1 - fr[4][i]
             rows.append(f"{event}  ε={e:.2f}  " + "  ".join(f"{CAT[c][0]} {100*fr[c][i]:4.0f}%" for c in CAT)
-                        + f"   pass/buoyant {100*fr[1][i]/buoy if buoy else float('nan'):4.0f}%")
+                        + f"   pass/unstable {100*fr[1][i]/unstable if unstable else float('nan'):4.0f}%")
     return "\n".join(rows)
 
 
@@ -85,10 +95,10 @@ def fig_map(ds, eps=0.2):
     cat = ds["category"].sel(epsilon=eps, method="nearest")
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.pcolormesh(ds["longitude"], ds["latitude"], cat, shading="nearest",
-                  cmap=ListedColormap([CAT[c][1] for c in CAT]), vmin=0.5, vmax=4.5)
+                  cmap=ListedColormap([CAT[c][1] for c in CAT]), vmin=0.5, vmax=5.5)
     for c in CAT:
         ax.plot([], [], "s", color=CAT[c][1], label=CAT[c][0])
-    ax.legend(fontsize=7, ncol=4, loc="lower left")
+    ax.legend(fontsize=7, ncol=5, loc="lower left")
     ax.set(xlabel="longitude", ylabel="latitude",
            title=f"Stage f category at ε = {float(cat.epsilon):.2f} · {ds.attrs['event_type']} {ds.attrs['year']}")
     return fig
@@ -131,7 +141,7 @@ def fig_flags(ds):
 
 
 def delta_check(year, event):
-    """'No buoyancy' at small ε should ≈ the δ = h_LPL − h*500 < 0 fraction."""
+    """'Stable' (never buoyant, even at ε = 0) should ≈ the δ = h_LPL − h*500 < 0 fraction."""
     prof = xr.open_dataset(_dir("profiles") / f"profiles_{event}_b06_{year}.nc").sel(lead=0).isel(year=0)
     der = xr.open_dataset(_dir("derived") / f"derived_{event}_b06_{year}.nc").sel(lead=0).isel(year=0)
     m = analysis_mask(prof["latitude"].values, prof["longitude"].values)
@@ -140,7 +150,7 @@ def delta_check(year, event):
     z = open_ztop(year, event)
     nb = ((z["category"] == 4).sum(["latitude", "longitude"]) / np.isfinite(z["category"]).sum(["latitude", "longitude"])).values
     return (f"{event} {year}: {d.size} events · δ<0 {100*np.mean(d < 0):.0f}% · "
-            f"no buoyancy at ε={float(z.epsilon[0]):.2f}: {100*nb[0]:.0f}%")
+            f"stable: {100*nb[0]:.0f}%")
 
 
 def fig_examples(year, event, eps_show=(0.1, 0.2, 0.3), n=2, seed=0):

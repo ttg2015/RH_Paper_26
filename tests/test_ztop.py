@@ -128,6 +128,11 @@ class TestStageF(unittest.TestCase):
         # categories cover more than one outcome on this varied grid, and passes exist
         self.assertGreater(len(np.unique(inside.values)), 1)
         self.assertTrue((inside == 1).any())
+        # stable (never buoyant at ε = 0) is the same set at every ε; diluted out only grows with ε
+        v = inside.values
+        self.assertTrue(np.all((v == 4) == (v[:1] == 4)))
+        diluted = (v == 5).reshape(len(v), -1).sum(1)
+        self.assertTrue(np.all(np.diff(diluted) >= 0))
         # excess split adds up
         tot, below, above = (ds[k].values for k in ("E_total", "E_below", "E_above"))
         m = np.isfinite(tot)

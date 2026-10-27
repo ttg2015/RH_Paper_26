@@ -1,10 +1,10 @@
 """Plume strike points and plausibility, dry vs moist: T and h2m extremes pooled, split at RH0.
 
 Figure 1 (strike_points_rh): (a, b) ε × plume-top pressure for dry and moist events, colour =
-share of all events in the class per 10 hPa, window, median top, % buoyant above each column;
-(c) top distributions at ε_detail, dry vs moist.
-Figure 2 (ztop_fractions_rh): category shares vs ε for dry and moist (too shallow · no buoyancy ·
-pass · too deep, as fig_ztop_fractions.py) with pass / buoyant on the right axis.
+share of the unstable events (buoyant at ε = 0) in the class per 10 hPa, window, median top,
+% of unstable events still buoyant above each column; (c) top distributions at ε_detail.
+Figure 2 (ztop_fractions_rh): shares of the unstable events vs ε for dry and moist (too shallow ·
+pass · too deep · diluted out, as fig_ztop_fractions.py); stable share printed in each panel.
     python figures/fig_strike_points_rh.py [--years 1980-2019] [--unweighted]
 """
 import matplotlib
@@ -17,9 +17,7 @@ import figdata as FD
 import style
 
 P_COARSEN = 2
-CAT = {1: ("pass", "#43a047"), 2: ("too shallow", "#fb8c00"), 3: ("too deep", "#5e35b1"),
-       4: ("no buoyancy", "#b0bec5")}
-ORDER = [2, 4, 1, 3]
+CAT = FD.STRIKE_CAT
 
 
 def pooled(data, name):
@@ -51,26 +49,28 @@ def make(out_dir, years=None, weighted=True):
                           [eps[-1] + (eps[-1] - eps[-2]) / 2]])
     for j, key in enumerate(("dry", "moist")):
         ax = fig.add_subplot(gs[0, j])
-        total = hc[key][:, 1:5].sum(1)
+        total, stable, sh = FD.unstable_counts(hc[key])
         h, ep = FD.coarsen(hp[key], pe, P_COARSEN, axis=1)
         share = h / np.where(total[:, None] > 0, total[:, None], np.nan)
         im = ax.pcolormesh(x_e, ep, np.ma.masked_equal(share.T, 0) * 100, cmap="viridis", shading="flat")
-        fig.colorbar(im, ax=ax, label="% of events per 10 hPa", pad=0.02)
+        fig.colorbar(im, ax=ax, label="% of unstable events per 10 hPa", pad=0.02)
         med = [np.interp(0.5 * r.sum(), np.cumsum(r), pc) if r.sum() else np.nan for r in hp[key]]
         ax.plot(eps, med, "w-o", ms=4, lw=2, label="median top")
         for p in (lo, hi):
             ax.axhline(p, color="#ff7043", lw=1.5, ls="--")
         tr = blended_transform_factory(ax.transData, ax.transAxes)
-        buoy = 1 - hc[key][:, 4] / np.where(total > 0, total, np.nan)
+        buoy = 1 - sh[5]                                              # not diluted out
         for k, b in enumerate(buoy):
             ax.text(eps[k], 1.01, f"{100 * b:.0f}", transform=tr, ha="center", va="bottom", fontsize=7)
         ax.set(ylim=(1000, 100), xlabel="ε [km⁻¹]", ylabel="plume top [hPa]")
-        ax.set_title(f"{lab[key]}   (numbers above: % buoyant)", pad=16)
+        ax.set_title(f"{lab[key]} · stable {100 * stable[0] / max(stable[0] + total[0], 1):.0f}% left out"
+                     "\n(numbers above: % of unstable still buoyant)", pad=16)
         ax.legend(fontsize=7, loc="lower right", facecolor="0.3", labelcolor="w", framealpha=0.6)
         inwin = hp[key][kd][(pc >= lo) & (pc <= hi)].sum() / total[kd] if total[kd] else np.nan
         facts[f"{key}: median top at ε={eps[kd]:g}"] = f"{med[kd]:.0f} hPa"
-        facts[f"{key}: share of all events topping in {lo}–{hi} hPa at ε={eps[kd]:g}"] = f"{100 * inwin:.0f}%"
-        facts[f"{key}: % buoyant at ε={eps[kd]:g}"] = f"{100 * buoy[kd]:.0f}%"
+        facts[f"{key}: share of unstable events topping in {lo}–{hi} hPa at ε={eps[kd]:g}"] = f"{100 * inwin:.0f}%"
+        facts[f"{key}: % of unstable still buoyant at ε={eps[kd]:g}"] = f"{100 * buoy[kd]:.0f}%"
+        facts[f"{key}: stable (never buoyant)"] = f"{100 * stable[0] / max(stable[0] + total[0], 1):.0f}%"
     ax = fig.add_subplot(gs[1, 0])
     for key, color in (("dry", FD.DRY_COLOR), ("moist", FD.MOIST_COLOR)):
         h, ep = FD.coarsen(hp[key][kd], pe, P_COARSEN)
@@ -89,26 +89,31 @@ def make(out_dir, years=None, weighted=True):
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.0), sharey=True)
     ff = {}
     for ax, key in zip(axes, ("dry", "moist")):
-        c = hc[key][:, 1:5]
-        frac = {code: c[:, code - 1] / c.sum(1) for code in CAT}
-        ax.stackplot(eps, *[100 * frac[k] for k in ORDER], colors=[CAT[k][1] for k in ORDER],
-                     labels=[CAT[k][0] for k in ORDER], alpha=0.9, edgecolor="white", lw=0.6)
-        ax2 = ax.twinx()
-        ratio = 100 * frac[1] / np.where(1 - frac[4] > 0, 1 - frac[4], np.nan)
-        ax2.plot(eps, ratio, "k--o", ms=3.5, lw=1.3)
-        ax2.set_ylim(0, 100)
+        n, stable, sh = FD.unstable_counts(hc[key])
+        order = FD.STRIKE_ORDER
+        c6 = np.concatenate([hc[key], np.zeros(hc[key].shape[:-1] + (max(0, 6 - hc[key].shape[-1]),))], -1)
+        allev = c6[:, 1:6].sum(1)
+        frac = {k: c6[:, k] / np.where(allev > 0, allev, np.nan) for k in order}
+        ax.stackplot(eps, *[100 * np.nan_to_num(frac[k]) for k in order], colors=[CAT[k][1] for k in order],
+                     labels=[CAT[k][0] for k in order], alpha=0.9, edgecolor="white", lw=0.6)
+        ratio = 100 * sh[1]
+        st = 100 * stable[0] / max(stable[0] + n[0], 1)
+        ff[f"{key}: stable (never buoyant)"] = f"{st:.0f}%"
         if np.nanmax(np.nan_to_num(ratio)) > 0:
             b = int(np.nanargmax(ratio))
-            ax2.annotate(f"{ratio[b]:.0f}% at ε = {eps[b]:.2f}", (eps[b], ratio[b]), xytext=(6, -14),
-                         textcoords="offset points", fontsize=8)
-            ff[f"{key}: best pass / buoyant"] = f"{ratio[b]:.0f}% at ε = {eps[b]:.2f}"
+            ax.text(0.98, 0.97 - st / 100, f"best: {ratio[b]:.0f}% of unstable events pass\nat ε = {eps[b]:.2f}",
+                    transform=ax.transAxes, ha="right", va="top", fontsize=8,
+                    bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.85))
+            ff[f"{key}: best pass / unstable"] = f"{ratio[b]:.0f}% at ε = {eps[b]:.2f}"
         else:
-            ff[f"{key}: best pass / buoyant"] = "no passes"
+            ff[f"{key}: best pass / unstable"] = "no passes"
         ax.set_xticks(np.arange(0.1, eps[-1] + 1e-9, 0.1))
-        ax.set(xlim=(eps[0], eps[-1]), ylim=(0, 100), xlabel="ε [km⁻¹]", title=lab[key])
+        ax.set(xlim=(eps[0], eps[-1]), ylim=(0, 100), xlabel="ε [km⁻¹]",
+               title=lab[key])
     axes[0].set_ylabel("share of events [%]")
-    axes[0].legend(fontsize=7, loc="upper right")
-    fig.suptitle(f"Where do plumes top out? dry vs moist · pass = {lo}–{hi} hPa · dashed = pass / buoyant (right axis)",
+    h, l = axes[0].get_legend_handles_labels()
+    axes[0].legend(h[::-1], l[::-1], fontsize=7, loc="upper right")
+    fig.suptitle(f"Where do plumes top out? dry vs moist · pass = {lo}–{hi} hPa · unstable = buoyant at ε = 0",
                  fontsize=10)
     fig.tight_layout()
     items.append({"path": FD.save(fig, out_dir, "ztop_fractions_rh"), "title": "Plume tops vs ε · dry vs moist",

@@ -8,7 +8,10 @@ import numpy as np
 
 from .plume import G, P_TOP, crossings, excess, fine_grid, plume, to_fine
 
-CATEGORIES = {0: "outside mask", 1: "pass", 2: "too shallow", 3: "too deep", 4: "no buoyancy"}
+CATEGORIES = {0: "outside mask", 1: "pass", 2: "too shallow", 3: "too deep", 4: "stable",
+              5: "diluted out"}
+# stable: never buoyant even undiluted (ε = 0), the same events at every ε
+# diluted out: buoyant at ε = 0 but not at this ε
 EPS_MAX = 3.0          # 1/km, upper end of the ε-window search
 BISECT_STEPS = 18
 
@@ -35,12 +38,14 @@ class Columns:
         return np.where(at_top, P_TOP, np.where(buoyant, p_high, self.p0))
 
 
-def categorise(p_high, buoyant, at_top, window):
+def categorise(p_high, buoyant, at_top, window, buoyant0):
+    """buoyant0: buoyant anywhere at ε = 0 (separates stable from diluted out)."""
     lo, hi = window                                        # e.g. 400, 600 hPa
     cat = np.full(p_high.shape, 1, dtype=np.int8)
     cat[p_high > hi] = 2
     cat[(p_high < lo) | at_top] = 3
-    cat[~buoyant] = 4
+    cat[~buoyant] = 5
+    cat[~buoyant0] = 4
     return cat
 
 
@@ -49,6 +54,7 @@ def sweep(cols, eps_list, p_lcl, window):
     keys = ["p_top_first", "p_top", "z_top", "category", "multi_layer", "non_monotonic",
             "E_total", "E_below", "E_above"]
     out = {k: [] for k in keys}
+    buoyant0 = cols.top(0.0)[4]
     for eps in eps_list:
         h_p, p_first, p_high, n_layers, buoyant, at_top = cols.top(eps)
         p_top = np.where(at_top | ~buoyant, np.nan, p_high)
@@ -58,7 +64,7 @@ def sweep(cols, eps_list, p_lcl, window):
         non_mono = np.any((cols.h > h_p) & below_top, 1)
         tot, below, above = excess(h_p, cols.h, cols.z, cols.p, np.nan_to_num(p_top, nan=np.inf),
                                    p_lcl, eps)
-        for key, val in zip(keys, [p_first, p_top, z_top, categorise(p_high, buoyant, at_top, window),
+        for key, val in zip(keys, [p_first, p_top, z_top, categorise(p_high, buoyant, at_top, window, buoyant0),
                                    n_layers > 1, non_mono, tot, below, above]):
             out[key].append(np.where(np.isfinite(p_top), val, np.nan) if key.startswith("E_") else val)
     return {k: np.array(v) for k, v in out.items()}

@@ -1,13 +1,13 @@
 """Stage f: where do entraining plumes top out? Category shares vs ε, one panel per event type.
 
-Stacked bottom → top: too shallow · no buoyancy · pass · too deep, so "too low" sits under
-the pass band, "too high" sits over it, and the stable (no buoyancy) events lie next to pass.
-The dashed line (right axis) is pass / buoyant: the share of plumes that can rise at all whose
-top lands in the window.
+Stacked bottom → top: too deep · pass · too shallow · diluted out · stable, as shares of all
+events. Stable (never buoyant, even with no entrainment) is the same grey cap at every ε.
+The pass rate quoted on the plot is pass / unstable (unstable = buoyant at ε = 0), a fixed
+denominator at every ε.
 
     python figures/fig_ztop_fractions.py                          # every ztop file, both events
     python figures/fig_ztop_fractions.py --years 1980-1989 --weighted
-    python figures/fig_ztop_fractions.py --order 2 4 1 3 --out runs/figs/ztop_fractions
+    python figures/fig_ztop_fractions.py --out runs/figs/ztop_fractions
 
 Reads Ztop/ztop_{E}_b06_{YEAR}.nc only. Writes <out>.pdf and <out>.png.
 """
@@ -24,15 +24,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import stage_f_checks as F                                   # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
-ORDER = [2, 4, 1, 3]          # too shallow, no buoyancy, pass, too deep (bottom → top)
 EVENT_NAME = {"T": "2 m temperature extremes", "M": "2 m MSE (wet-bulb) extremes"}
 
 
-def plot(by_event, order=ORDER, weighted=False, window=(400, 600)):
+def plot(by_event, weighted=False, window=(400, 600)):
     fig, axes = plt.subplots(1, len(by_event), figsize=(5.2 * len(by_event), 4.0),
                              squeeze=False, sharey=True)
     for ax, (event, dss) in zip(axes[0], by_event.items()):
         eps, fr = F.fractions(dss, weighted)
+        sh, stable = F.of_unstable(fr)
+        order = F.ORDER
         ax.stackplot(eps, *[100 * fr[c] for c in order], colors=[F.CAT[c][1] for c in order],
                      labels=[F.CAT[c][0] for c in order], alpha=0.9, edgecolor="white", lw=0.6)
         # label each band where it is thickest
@@ -43,18 +44,10 @@ def plot(by_event, order=ORDER, weighted=False, window=(400, 600)):
                 ax.text(eps[k], 100 * (base[k] + fr[c][k] / 2), F.CAT[c][0], ha="center", va="center",
                         fontsize=8, color="white" if c in (1, 3) else "#263238", weight="bold")
             base = base + fr[c]
-        buoy = 1 - fr[4]
-        ratio = 100 * fr[1] / np.where(buoy > 0, buoy, np.nan)
-        ax2 = ax.twinx()
-        ax2.plot(eps, ratio, "k--o", ms=3.5, lw=1.3, label="pass / buoyant")
-        best = int(np.nanargmax(ratio))
-        ax2.annotate(f"{ratio[best]:.0f}% at ε = {eps[best]:.2f}", (eps[best], ratio[best]),
-                     xytext=(6, -14), textcoords="offset points", fontsize=8,
-                     bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.8))
-        ax2.set(ylim=(0, 100))
-        ax2.set_ylabel("pass / buoyant [%]" if ax is axes[0][-1] else "")
-        if ax is not axes[0][-1]:
-            ax2.set_yticklabels([])
+        best = int(np.nanargmax(sh[1]))
+        ax.text(0.98, 0.97 - stable[0], f"best: {100 * sh[1][best]:.0f}% of unstable events pass\n"
+                f"at ε = {eps[best]:.2f}", transform=ax.transAxes, ha="right", va="top", fontsize=8,
+                bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.85))
         n_years = len({d.attrs["year"] for d in dss})
         ax.set_xticks(np.arange(0.1, eps[-1] + 1e-9, 0.1))
         ax.set(xlim=(eps[0], eps[-1]), ylim=(0, 100), xlabel="entrainment rate ε [km⁻¹]",
@@ -62,16 +55,14 @@ def plot(by_event, order=ORDER, weighted=False, window=(400, 600)):
                      f"{' · cos(lat) weighted' if weighted else ''}")
     axes[0][0].set_ylabel("share of events [%]")
     handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles[::-1] + [plt.Line2D([], [], color="k", ls="--", marker="o", ms=3.5)],
-               labels[::-1] + ["pass / buoyant (right axis)"], loc="lower center",
-               ncol=len(order) + 1, fontsize=8, frameon=False)
+    fig.legend(handles[::-1], labels[::-1], loc="lower center", ncol=len(F.ORDER), fontsize=8, frameon=False)
     fig.suptitle(f"Where do entraining plumes from the LPL top out? Pass = top within "
-                 f"{window[0]}–{window[1]} hPa", fontsize=10)
+                 f"{window[0]}–{window[1]} hPa · unstable = buoyant at ε = 0 (not stable)", fontsize=10)
     fig.tight_layout(rect=(0, 0.07, 1, 0.95))
     return fig
 
 
-def make(out_dir, years=None, weighted=True):
+def make(out_dir, years=None, weighted=False):
     """For make_all.py: both events, every ztop file in the year range."""
     y0, y1 = years or (0, 9999)
     by_event = {}
@@ -81,7 +72,7 @@ def make(out_dir, years=None, weighted=True):
     if not by_event:
         raise FileNotFoundError("no ztop files")
     by_event = {e: by_event[e] for e in ("T", "M") if e in by_event}
-    fig = plot(by_event, ORDER, weighted, tuple(F.load("analysis")["ztop_window_hPa"]))
+    fig = plot(by_event, weighted, tuple(F.load("analysis")["ztop_window_hPa"]))
     out = Path(out_dir) / "ztop_fractions"
     out.parent.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "png"):
@@ -89,9 +80,11 @@ def make(out_dir, years=None, weighted=True):
     facts = {}
     for e, dss in by_event.items():
         eps, fr = F.fractions(dss, weighted)
-        ratio = fr[1] / (1 - fr[4])
-        k = int(np.nanargmax(ratio))
-        facts[f"best pass/buoyant {e}"] = f"{100 * ratio[k]:.0f}% at ε = {eps[k]:.2f} ({len(dss)} years)"
+        sh, stable = F.of_unstable(fr)
+        k = int(np.nanargmax(sh[1]))
+        facts[f"best pass/unstable {e}"] = (f"{100 * sh[1][k]:.0f}% at ε = {eps[k]:.2f} "
+                                            f"(diluted out {100 * sh[5][k]:.0f}%, {len(dss)} years)")
+        facts[f"stable {e}"] = f"{100 * stable[0]:.0f}% of all events"
     facts["weighting"] = "cos(lat)" if weighted else "none"
     return [{"path": out.with_suffix(".png"), "title": "Plume tops vs ε (stage f)", "facts": facts,
              "script": "figures/fig_ztop_fractions.py"}]
@@ -102,8 +95,6 @@ def main(argv=None):
     ap.add_argument("--years", help="e.g. 1980-2019 (default: every ztop file found)")
     ap.add_argument("--events", nargs="+", default=["T", "M"], choices=["T", "M"])
     ap.add_argument("--weighted", action="store_true", help="cos(latitude) area weights (E02)")
-    ap.add_argument("--order", nargs=4, type=int, default=ORDER,
-                    help="category codes bottom → top: 1 pass, 2 too shallow, 3 too deep, 4 no buoyancy")
     ap.add_argument("--out", default=str(REPO / "runs" / "figs" / "ztop_fractions"))
     a = ap.parse_args(argv)
     y0, y1 = (map(int, a.years.split("-")) if a.years and "-" in a.years
@@ -116,7 +107,7 @@ def main(argv=None):
         sys.exit("No ztop files found for that selection.")
     by_event = {e: by_event[e] for e in a.events if e in by_event}
     window = tuple(F.load("analysis")["ztop_window_hPa"])
-    fig = plot(by_event, a.order, a.weighted, window)
+    fig = plot(by_event, a.weighted, window)
     out = Path(a.out + ("_weighted" if a.weighted else ""))
     out.parent.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "png"):

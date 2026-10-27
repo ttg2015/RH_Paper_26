@@ -208,6 +208,27 @@ def rh0(data, weighted=False, product="h2_rh_dFT", coarsen_rh=2, min_events=20):
     return zero_crossing(x[::-1], m[::-1])
 
 
+
+STRIKE_CAT = {1: ("pass", "#43a047"), 2: ("too shallow", "#fb8c00"), 3: ("too deep", "#5e35b1"),
+              4: ("stable", "#b0bec5"), 5: ("diluted out", "#e57373")}
+UNSTABLE = [2, 1, 3, 5]          # every category except stable
+STRIKE_ORDER = [3, 1, 2, 5, 4]   # stacking order bottom → top: too deep, pass, too shallow, diluted out, stable
+
+
+def unstable_counts(cat):
+    """Stage f category counts (..., code) → (unstable events, stable events, {code: share of unstable}).
+
+    Unstable = buoyant somewhere at ε = 0, the same events at every ε, so the shares of pass,
+    too shallow, too deep and diluted out add to 1 at each ε with one denominator.
+    """
+    cat = np.asarray(cat, float)
+    if cat.shape[-1] < 6:                                    # files from before code 5 existed
+        cat = np.concatenate([cat, np.zeros(cat.shape[:-1] + (6 - cat.shape[-1],))], -1)
+    n = cat[..., UNSTABLE].sum(-1)
+    safe = np.where(n > 0, n, np.nan)
+    return n, cat[..., 4], {c: cat[..., c] / safe for c in UNSTABLE}
+
+
 def split_rh(counts, rh_edges, rh_split, axis=0):
     """Sum an array over RH bins below and above rh_split (bin centres). Returns (dry, moist)."""
     c = centers(rh_edges)
