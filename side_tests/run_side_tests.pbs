@@ -1,0 +1,40 @@
+#!/bin/bash -l
+# Side tests 1-5 (read-only on the pipeline; writes only under $OUT). Task 7 is parked, not here.
+# Submit from the repo root, AFTER stages f and g have rerun:   qsub side_tests/run_side_tests.pbs
+#PBS -N side_tests
+#PBS -A UNYU0020
+#PBS -q casper
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=1:mem=64GB
+#PBS -j oe
+#PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/side_tests.log
+
+module load conda && conda activate npl
+cd "$PBS_O_WORKDIR"
+OUT=/glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/side_tests
+LCL_YEARS="1980 1990 2000 2010 2019"
+YEARS="1980 1984 1988 1992 1996 2000 2004 2008 2012 2016"      # ten years: jackknife errors in Task 5
+mkdir -p "$OUT"
+
+echo "=== Task 0: unit tests"
+python -m unittest tests/test_ztop.py tests/test_thermo.py || { echo "unit tests failed, stopping"; exit 1; }
+python side_tests/test_lcl_compare.py || { echo "LCL synthetic test failed, stopping"; exit 1; }
+python -m launch status --stages d e f g > "$OUT/t0_status.txt" 2>&1
+
+echo "=== Task 1: LCL of LPL air vs 2 m air"
+for y in $LCL_YEARS; do for e in T M; do
+  python side_tests/lcl_compare.py run "$y" "$e" --out "$OUT/lcl" || echo "FAILED t1 $y $e"
+done; done
+python side_tests/lcl_compare.py report "$OUT/lcl" > /dev/null
+
+echo "=== Task 2: numbers from the figure data"
+python side_tests/t2_figdata_numbers.py --out "$OUT" > /dev/null || echo "FAILED t2"
+
+echo "=== Tasks 3-5: event-level checks"
+for y in $YEARS; do for e in T M; do
+  python side_tests/t345_events.py run "$y" "$e" --out "$OUT/t345" || echo "FAILED t345 $y $e"
+done; done
+python side_tests/t345_events.py report --out "$OUT/t345" > /dev/null
+
+echo "=== DONE. Reports:"
+ls -1 "$OUT"/t0_status.txt "$OUT"/lcl/lcl_report.md "$OUT"/t2_report.md "$OUT"/t345/t345_report.md
