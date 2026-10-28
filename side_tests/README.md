@@ -21,7 +21,7 @@ After `python -m launch run --stages f g --years 1980-2019` has finished:
 
     qsub side_tests/run_side_tests.pbs
 
-Then read
+Then open `side_tests/side_tests.ipynb` on JupyterHub (it reads these outputs; `RUN = True` recomputes chosen years), or read
 `/glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/side_tests/{t0_status.txt, lcl/lcl_report.md, t2_report.md, t345/t345_report.md}`.
 
 Task 2 alone is quick and can run on the login node: `python side_tests/t2_figdata_numbers.py`.
