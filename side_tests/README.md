@@ -9,6 +9,7 @@ Outputs go to `<work>/side_tests/` on scratch.
 | 0 | unit tests + `launch status` (in the PBS job) | — |
 | 1 LCL of LPL vs 2 m air | `lcl_compare.py` (reviewed copy of the side-draft one) | stage d, g code |
 | 2 paper numbers from figure data | `t2_figdata_numbers.py` | stage g files |
+| draft | every bold placeholder in Draft 3: `draft_numbers.py` | stage g, Tasks 1, 3, 4 outputs |
 | 3 stage f categories vs δ_a | `t345_events.py` | stage f rerun with stable / diluted-out codes |
 | 4 η and closure, h* uniformity | `t345_events.py` | stage f files |
 | 5 per-box cascade slope Γ_h | `t345_events.py` | stage d files |
