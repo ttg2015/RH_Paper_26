@@ -78,6 +78,31 @@ class Known(unittest.TestCase):
         self.assertAlmostEqual(got, 320.0 + 20.0 * np.exp(-0.2 * 7.4 * np.log(2)), places=3)
         self.assertAlmostEqual(T.eps_required(LEV, z, he, 340.0, 1000.0, got), 0.2, places=3)
 
+    def test_closed_form_matches_plume(self):
+        """h_c = (1 − f) h0 + f h̄_e reproduces the marched plume, with f = 1 − exp(−εL), on a real-shaped profile."""
+        c = make()
+        i = int(np.argmin(abs(RH - 0.425)))
+        for eps in (0.05, 0.2, 0.4):
+            r = T.closed_form(LEV, c["z"][i], c["MSE"][i], 1000.0, eps, c["p_LCL_LPL"][i], 330.0)
+            march = T.plume_top(LEV, c["z"][i], c["MSE"][i], 340.0, 1000.0, eps)
+            self.assertAlmostEqual(march, (1 - r["f"]) * 340.0 + r["f"] * r["hbar"], places=8)
+            self.assertAlmostEqual(r["f"], 1 - np.exp(-eps * r["L"]), places=8)
+            self.assertAlmostEqual(r["below"] + r["above"], r["f"] * (330.0 - r["hbar"]), places=8)
+
+    def test_closed_form_inverts_eps_req(self):
+        """At ε = ε_req the formula returns δ_a exactly: the algebra, not a result."""
+        c = make()
+        i = int(np.argmin(abs(RH - 0.625)))
+        h0, hs = c["h_LPL"][i], 330.0
+        eps = T.eps_required(LEV, c["z"][i], c["MSE"][i], h0, 1000.0, hs)
+        r = T.closed_form(LEV, c["z"][i], c["MSE"][i], 1000.0, eps)
+        self.assertAlmostEqual(r["f"] / (1 - r["f"]) * (hs - r["hbar"]), h0 - hs, places=4)
+
+    def test_closed_candidates_run(self):
+        r = T.closed_candidates(make())
+        self.assertTrue(np.isfinite(r["K_closed_0.2"]))
+        self.assertLess(abs(r["K_below_0.2"]), 30.0)                # small parts, not the raw energy
+
 
 if __name__ == "__main__":
     unittest.main()

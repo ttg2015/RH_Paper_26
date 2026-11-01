@@ -15,6 +15,7 @@ MIN_N = 100                                                   # events per RH bi
 MIN_BINS = 4                                                  # populated bins in the window
 EPS = 0.2                                                     # km⁻¹
 TOP_HPA = 500.0
+EPS_LIST = (0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40)         # km⁻¹, for the closed form
 
 
 def load_all(folder, events=("T", "M"), years=None):
@@ -136,6 +137,70 @@ def eps_required(lev, z, he, h0, p0, target, lo=1e-3, hi=3.0):
         else:
             lo, a = mid, v
     return 0.5 * (lo + hi)
+
+
+def closed_form(lev, z, he, p0, eps, p_split=np.nan, ref=0.0, top=TOP_HPA, npts=200):
+    """Exact plume solution h_c(top) = (1 − f) h0 + f h̄_e, with f = 1 − exp(−εL) and h̄_e the environment
+    weighted toward the top. Returns f, h̄_e, L and the parts of f·(ref − h̄_e) below and above p_split."""
+    nan = dict(f=np.nan, hbar=np.nan, L=np.nan, below=np.nan, above=np.nan, wbelow=np.nan)
+    m = np.isfinite(z) & np.isfinite(he) & (lev <= p0) & (lev >= top)
+    if m.sum() < 3:
+        return nan
+    o = np.argsort(z[m])
+    zz, hh = z[m][o], he[m][o]
+    grid = np.linspace(zz[0], zz[-1], npts)
+    e = np.interp(grid, zz, hh)
+    a = np.exp(-eps * (grid[1] - grid[0]))
+    w = (1 - a) * a ** np.arange(npts - 2, -1, -1)            # weight of each step, same scheme as plume_top
+    mid = 0.5 * (e[1:] + e[:-1])
+    f = w.sum()
+    out = dict(f=f, hbar=(w * mid).sum() / f, L=zz[-1] - zz[0], below=np.nan, above=np.nan, wbelow=np.nan)
+    if np.isfinite(p_split):
+        zs = interp_p(lev, z, p_split)
+        under = 0.5 * (grid[1:] + grid[:-1]) < zs
+        out.update(below=(w * (ref - mid))[under].sum(), above=(w * (ref - mid))[~under].sum(), wbelow=w[under].sum())
+    return out
+
+
+def closed(c, min_n=MIN_N, eps_list=EPS_LIST):
+    """Per RH bin and ε: predicted δ_a = (exp(εL) − 1)(h*500 − h̄_e), with h̄_e split at the LCL."""
+    lev, nb = c["levels"].astype(float), len(c["n"])
+    out = {k: np.full((len(eps_list), nb), np.nan) for k in ("pred", "hbar", "f", "L", "below", "above", "wbelow")}
+    for i in np.nonzero(c["n"] >= min_n)[0]:
+        h = c["MSE"][i]
+        if not np.isfinite(h).any():
+            continue
+        p0 = min(c["p_LPL"][i], np.nanmax(lev[np.isfinite(h)]))
+        for k, eps in enumerate(eps_list):
+            r = closed_form(lev, c["z"][i], h, p0, eps, c["p_LCL_LPL"][i], c["h_star500"][i])
+            for v in ("hbar", "f", "L", "below", "above", "wbelow"):
+                out[v][k, i] = r[v]
+            out["pred"][k, i] = r["f"] / (1 - r["f"]) * (c["h_star500"][i] - r["hbar"])
+    return out
+
+
+def closed_candidates(c, cl=None, eps_list=EPS_LIST):
+    """Target K, the K of the closed form at each ε, and the budget of the deficit h*500 − h̄_e."""
+    cl = cl or closed(c, eps_list=eps_list)
+    r = {"K": kfit(c, c["delta_a"]), "K_hstar": kfit(c, c["h_star500"]), "n": c["n"][(c["RH_2m"] >= WINDOW[0]) & (c["RH_2m"] <= WINDOW[1])].sum()}
+    for k, eps in enumerate(eps_list):
+        r[f"K_closed_{eps:g}"] = kfit(c, cl["pred"][k])
+        r[f"K_hbar_{eps:g}"] = kfit(c, cl["hbar"][k])
+        r[f"K_below_{eps:g}"] = kfit(c, cl["below"][k])        # parts of f·(h*500 − h̄_e), split at the LCL
+        r[f"K_above_{eps:g}"] = kfit(c, cl["above"][k])
+        r[f"f_{eps:g}"] = wmean(c, cl["f"][k])
+        r[f"L_{eps:g}"] = wmean(c, cl["L"][k])
+        r[f"rmse_{eps:g}"] = bin_rmse(c, cl["pred"][k])
+    return r
+
+
+def bin_rmse(c, pred, min_n=MIN_N, window=WINDOW):
+    """Event-weighted RMS of predicted − actual δ_a over the window's RH bins."""
+    x = c["RH_2m"]
+    ok = (c["n"] >= min_n) & np.isfinite(pred) & np.isfinite(c["delta_a"]) & (x >= window[0]) & (x <= window[1])
+    if ok.sum() < MIN_BINS:
+        return np.nan
+    return np.sqrt(np.average((pred[ok] - c["delta_a"][ok]) ** 2, weights=c["n"][ok]))
 
 
 def measures(c, min_n=MIN_N, ref_rh=0.625):
