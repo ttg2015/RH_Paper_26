@@ -1,0 +1,17 @@
+#!/bin/bash -l
+# Composites for the cascade tests notebook. Finished years are skipped, so a resubmit picks up where it stopped.
+# Submit from the repo root:   qsub side_tests/run_cascade_composites.pbs
+#PBS -N casc_composites
+#PBS -A UNYU0020
+#PBS -q casper
+#PBS -l walltime=06:00:00
+#PBS -l select=1:ncpus=1:mem=64GB
+#PBS -j oe
+#PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/casc_composites.log
+
+module load conda && conda activate npl
+cd "$PBS_O_WORKDIR"
+for y in $(seq 1980 2019); do for e in T M; do
+  python -W ignore side_tests/cascade_composites.py "$y" "$e" || echo "FAILED $y $e"
+done; done
+echo "=== DONE"

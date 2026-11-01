@@ -11,6 +11,7 @@ Outputs go to `<work>/side_tests/` on scratch.
 | 2 paper numbers from figure data | `t2_figdata_numbers.py` | stage g files |
 | draft | every bold placeholder in Draft 3: `draft_numbers.py` | stage g, Tasks 1, 3, 4 outputs |
 | pooled h*500 vs RH (Section 7 assumption) | `pooled_hstar.py` | stage d files, stage g files |
+| profile measurable for K (Section 7) | `cascade_composites.py` + `run_cascade_composites.pbs`, then `cascade_tests.ipynb` | stage d files |
 | 3 stage f categories vs δ_a | `t345_events.py` | stage f rerun with stable / diluted-out codes |
 | 4 η and closure, h* uniformity | `t345_events.py` | stage f files |
 | 5 per-box cascade slope Γ_h | `t345_events.py` | stage d files |
