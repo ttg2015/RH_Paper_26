@@ -12,6 +12,7 @@ Figure mask plus the cascade terrain cut, lead from figdata.yaml, fixed pressure
 """
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -80,6 +81,7 @@ def run(year, event, out_dir, force=False):
     if path.exists() and not force:
         print(path.name, "exists, skipped", flush=True)
         return
+    start = time.time()
     cfg = g.load("figdata")
     f, lat, lon, levels, profiles = g.fields(year, event, 6, cfg["lead"])
     zs_km = g.surface_height_km(lat, lon)
@@ -87,7 +89,7 @@ def run(year, event, out_dir, force=False):
     res, names = accumulate(f, {v: profiles[v] for v in PROFILES}, mask, zs_km, event, cfg["cascade"]["boxes"])
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, levels=levels, rh_edges=RH_EDGES, names=np.array(names), **res)
-    print(f"{path.name}: {int(res['n'][-1].sum()):,} events", flush=True)
+    print(f"{path.name}: {int(res['n'][-1].sum()):,} events, {time.time() - start:.0f} s", flush=True)
 
 
 def main(argv=None):

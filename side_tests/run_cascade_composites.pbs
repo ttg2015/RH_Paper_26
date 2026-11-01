@@ -4,14 +4,14 @@
 #PBS -N casc_composites
 #PBS -A UNYU0020
 #PBS -q casper
-#PBS -l walltime=06:00:00
-#PBS -l select=1:ncpus=1:mem=64GB
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=8:mem=64GB
 #PBS -j oe
 #PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/casc_composites.log
 
 module load conda && conda activate npl
 cd "$PBS_O_WORKDIR"
-for y in $(seq 1980 2019); do for e in T M; do
-  python -W ignore side_tests/cascade_composites.py "$y" "$e" || echo "FAILED $y $e"
-done; done
+export OMP_NUM_THREADS=1
+for y in $(seq 1980 2019); do for e in T M; do echo "$y $e"; done; done \
+  | xargs -P 8 -L 1 sh -c 'python -W ignore side_tests/cascade_composites.py "$0" "$1" || echo "FAILED $0 $1"'
 echo "=== DONE"
