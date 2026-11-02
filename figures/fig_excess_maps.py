@@ -14,7 +14,7 @@ import figdata as FD
 import maps
 import style
 
-ROWS = [("delta_FT", r"$\mathbf{\delta}_{\mathbf{FT}}$"), ("delta_S", r"$\mathbf{\delta_S}$")]
+ROWS = [("delta_FT", r"$\mathbf{\delta}_{\mathbf{a}}$"), ("delta_S", r"$\mathbf{\delta_S}$")]
 COLS = [("M", r"$\mathbf{h_{2m}}$"), ("T", r"$\mathbf{T_{2m}}$")]
 LIM = 30
 

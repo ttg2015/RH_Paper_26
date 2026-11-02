@@ -19,9 +19,9 @@ WEIGHTED = True                  # a 1D distribution over the globe: cos(lat) we
 
 COARSEN = 1                      # native 0.25 kJ/kg bins
 HIST_RANGE = (-20, 30)
-QUANTITIES = [("delta_total", r"Total Excess: $\mathbf{\delta_{\mathrm{total}}}$"),
-              ("delta_S", r"Surface Jump: $\mathbf{\delta_{S}}$"),
-              ("delta_FT", r"Free Tropo. Excess: $\mathbf{\delta_{FT}}$")]
+QUANTITIES = [("delta_total", r"Total excess: $\mathbf{\delta}$"),
+              ("delta_S", r"Surface-layer excess: $\mathbf{\delta_{S}}$"),
+              ("delta_FT", r"Atmospheric excess: $\mathbf{\delta_{a}}$")]
 TEMP_COLOR, MSE_COLOR = "#C0392B", "#2471A3"
 LW, MEAN_LW, ZERO_LW = 2.5, 1.8, 1.5
 TXT, TITLE, LABEL, TICK = 13, 15, 13, 11

@@ -46,7 +46,7 @@ def make(out_dir, years=None, weighted=True):
         ax.set(xlim=RANGE, ylim=RANGE, xlabel=r"$h_{500}^*$ [kJ/kg]", ylabel=r"$h_{s}$ [kJ/kg]")
         fig.colorbar(cf, ax=ax, label="events" + (" (cos-wt)" if weighted else ""), pad=0.02)
         ax.legend(handles=[mpatches.Patch(color=plt.get_cmap(cmap)(0.6), label=r"$h_{2m}$ distribution"),
-                           mlines.Line2D([], [], color="green", lw=1.5, label=r"$h_{LPL}$ contours")],
+                           mlines.Line2D([], [], color="green", lw=1.5, label=r"$h_{ML}$ contours")],
                   loc="upper left", fontsize=8)
         ax.set_title(style.EVENT_LABEL[e], fontsize=10)
     fig.suptitle("Surface Layer Correction")

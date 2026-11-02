@@ -56,7 +56,7 @@ def plot(by_event, weighted=False, window=(400, 600)):
     axes[0][0].set_ylabel("share of events [%]")
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles[::-1], labels[::-1], loc="lower center", ncol=len(F.ORDER), fontsize=8, frameon=False)
-    fig.suptitle(f"Where do entraining plumes from the LPL top out? Pass = top within "
+    fig.suptitle(f"Where do entraining plumes from the surface-layer top end? Pass = top within "
                  f"{window[0]}–{window[1]} hPa · unstable = buoyant at ε = 0 (not stable)", fontsize=10)
     fig.tight_layout(rect=(0, 0.07, 1, 0.95))
     return fig

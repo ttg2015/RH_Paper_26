@@ -14,7 +14,7 @@ import figdata as FD
 import maps
 import style
 
-ROWS = [("delta_FT", r"$\delta_{FT}$"), ("delta_below", r"$\delta_{below}$"), ("delta_above", r"$\delta_{above}$")]
+ROWS = [("delta_FT", r"$\delta_{a}$"), ("delta_below", r"$\delta_{below}$"), ("delta_above", r"$\delta_{above}$")]
 CMAP = {"T": "Reds", "M": "Blues"}
 
 
@@ -42,7 +42,7 @@ def make(out_dir, years=None, weighted=True):
             axes[i][j].set_title(f"{lab} · {style.EVENT_LABEL[e]}", fontsize=13)
             fig.colorbar(im, ax=axes[i][j], shrink=0.8, pad=0.02, label="kJ/kg")
             facts[f"mean {q} {e} (unstable)"] = f"{np.nanmean(m[q]):.2f} kJ/kg"
-    fig.suptitle(f"Convective split of δ_FT (unstable events, ε = {eps:g} km⁻¹) · {data['T'].label()}", fontsize=15)
+    fig.suptitle(f"Convective split of δ_a (unstable events, ε = {eps:g} km⁻¹) · {data['T'].label()}", fontsize=15)
     facts.update(eps=f"{eps:g} km⁻¹", years=data["T"].label())
     return [{"path": FD.save(fig, out_dir, "convective_maps"), "title": "Convective maps: δ_below and δ_above",
              "facts": facts, "script": "figures/fig_convective_maps.py"}]

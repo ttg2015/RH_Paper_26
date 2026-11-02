@@ -37,7 +37,7 @@ def make(out_dir, years=None, weighted=True):
     _, mF = means(data, "h2_rh_dFT", weighted)
     fig, ax = plt.subplots(figsize=(6.5, 4.5))
     ax.plot(x, mS, "o-", color="#e67e22", label=r"$\delta_S = h_{2m}-h_{ML}$")
-    ax.plot(x, mF, "o-", color="#2980b9", label=r"$\delta_{FT} = h_{ML}-h^*_{500}$")
+    ax.plot(x, mF, "o-", color="#2980b9", label=r"$\delta_{a} = h_{ML}-h^*_{500}$")
     ax.plot(x, mS + mF, "k--", lw=1.5, label=r"total $\delta$")
     ax.axhline(0, color="k", ls=":", lw=1)
     ax.grid(alpha=0.3)

@@ -77,6 +77,7 @@ def write(folder, years=(1985, 1986), n=100_000, seed=0):
             dA = dft - dB
             ds["h2_rh_zlcl2m_unstable"] = (("bin_rh", "bin_zlcl"), np.histogram2d(rh[u], z[u], [E["rh"], E["zlcl"]])[0])
             ds["h2_rh_zlcl2m_unstable"].attrs.update(x_edges="edges_rh", y_edges="edges_zlcl")
+            ds["h2_rh_zlclLPL_unstable"] = ds["h2_rh_zlcl2m_unstable"].copy()
             for coord, bkey, cv in (("zLCL_LPL", "zlcl", z), ("RH_2m", "rh", rh)):
                 idx = np.digitize(cv[u], E[bkey]) - 1
                 ok = (idx >= 0) & (idx < len(E[bkey]) - 1)

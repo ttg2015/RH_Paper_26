@@ -92,7 +92,7 @@ def make(out_dir, years=None, weighted=True):
     axc.set_ylabel("events" + (" (cos-wt)" if weighted else ""), fontsize=9)
     axc.tick_params(labelbottom=False, labelsize=8)
     axc.set_ylim(bottom=0)
-    axc.set_title(fr"$\delta_{{FT}}$ vs RH · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}",
+    axc.set_title(fr"$\delta_{{a}}$ vs RH · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}",
                   fontsize=10)
 
     fig.canvas.draw()
@@ -102,8 +102,8 @@ def make(out_dir, years=None, weighted=True):
     ax.legend(handles=[mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=r"$T_{2m}$ max"),
                        mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=r"$h_{2m}$ max"),
                        mlines.Line2D([], [], color="gray", lw=1.5, marker=".", ms=6,
-                                     label=r"Mean $\delta_{FT}$")], loc="upper left", fontsize=8)
-    ax.set(xlim=XRANGE, ylim=YRANGE, xlabel="RH", ylabel=r"$\delta_{FT}$ [kJ/kg]")
+                                     label=r"Mean $\delta_{a}$")], loc="upper left", fontsize=8)
+    ax.set(xlim=XRANGE, ylim=YRANGE, xlabel="RH", ylabel=r"$\delta_{a}$ [kJ/kg]")
     facts = {"RH0 (pooled mean crosses 0)": f"{rh0:.3f}", "years": d0.label(),
              "weighting": "cos(lat)" if weighted else "none",
              "bins": "0.5 % RH × 0.25 kJ/kg, smoothed σ = 2 % RH × 0.75 kJ/kg",

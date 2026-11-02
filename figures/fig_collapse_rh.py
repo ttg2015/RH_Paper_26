@@ -17,8 +17,8 @@ import style
 
 COARSEN = 2                       # 0.5 % → 1 % RH
 MIN_N, MIN_BOTH = 20, 200
-PANELS = [("h2_rh_dFT", r"mean $\delta_{FT}$ [kJ/kg]"), ("h2_rh_dS", r"mean $\delta_S$ [kJ/kg]"),
-          ("h2_rh_dtotal", r"mean $\delta_{total}$ [kJ/kg]"), ("lb:delta_below", r"mean $\delta_{below}$ [kJ/kg] (unstable)"),
+PANELS = [("h2_rh_dFT", r"mean $\delta_{a}$ [kJ/kg]"), ("h2_rh_dS", r"mean $\delta_S$ [kJ/kg]"),
+          ("h2_rh_dtotal", r"mean $\delta$ [kJ/kg]"), ("lb:delta_below", r"mean $\delta_{below}$ [kJ/kg] (unstable)"),
           ("lb:delta_above", r"mean $\delta_{above}$ [kJ/kg] (unstable)"), ("strike", "median plume top [hPa]")]
 
 

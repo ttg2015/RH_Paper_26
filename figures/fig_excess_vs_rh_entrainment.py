@@ -34,7 +34,7 @@ def make(out_dir, years=None, weighted=True):
     draw_plane(ax, ex, ey, H, labels=False)
     x, m, n = mean_curve(H["T"] + H["M"], ex, ey)
     rh0 = FD.zero_crossing(x[::-1], m[::-1])
-    ax.plot(x, m, color="gray", lw=0, marker=".", ms=6, label=r"mean $\delta_{FT}$", zorder=5)
+    ax.plot(x, m, color="gray", lw=0, marker=".", ms=6, label=r"mean $\delta_{a}$", zorder=5)
     facts = {"RH0 (fixed, from crossing)": f"{rh0:.3f}", "fit window": f"{WINDOW[0]:.2f}–{WINDOW[1]:.2f}"}
     xs = np.linspace(0.05, 1.0, 400)
     in_window = np.isfinite(m) & (x >= WINDOW[0]) & (x <= WINDOW[1])
@@ -62,7 +62,7 @@ def make(out_dir, years=None, weighted=True):
         ax.axvline(rh0, color="k", lw=0.8, alpha=0.6)
         ax.text(rh0, YRANGE[1] * 0.93, f" RH$_0$ = {rh0:.3f}", fontsize=9)
     ax.legend(loc="upper right", fontsize=8)
-    ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{FT}$ [kJ/kg]",
+    ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ [kJ/kg]",
            title=f"Entrainment view: log-RH plume model · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}")
     axr.axhline(0, color="k", lw=0.8)
     axr.set(xlabel="RH", ylabel="mean − model\n[kJ/kg]", ylim=(-4, 4))

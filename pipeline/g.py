@@ -38,7 +38,8 @@ FEEDS = {"h1": "Fig - Excess Histograms", "h2_rh_dFT": "Fig - Excess vs RH",
          "h2_hs500_h2m": "Surface layer correction (old TempThing_overlay_right)",
          "h2_hs500_hlpl": "Surface layer correction (old TempThing_overlay_right)",
          "h2_hs500_h500": "RH conditioning demo panel (a); box hit-count figure",
-         "h2_rh_zlcl2m_unstable": "Fig - LCL-Binned Decomposition (panel a)",
+         "h2_rh_zlcl2m_unstable": "LCL-Binned Decomposition (old panel a, 2 m parcel)",
+         "h2_rh_zlclLPL_unstable": "Fig - LCL-Binned Decomposition (panel a)",
          "lb": "Fig - LCL-Binned Decomposition (panels b, c)"}
 
 
@@ -259,6 +260,11 @@ def run(year, event, buffer):
                                    np.histogram2d(f["RH_2m"][m2], f["zLCL_2m"][m2], [E["rh"], E["zlcl"]])[0])
     ds["h2_rh_zlcl2m_unstable"].attrs.update(x="RH_2m", y="zLCL_2m", x_edges="edges_rh", y_edges="edges_zlcl",
                                               units="count", feeds=FEEDS["h2_rh_zlcl2m_unstable"])
+    m3 = unst & np.isfinite(f["RH_2m"]) & np.isfinite(f["zLCL_LPL"])
+    ds["h2_rh_zlclLPL_unstable"] = (("bin_rh", "bin_zlcl"),
+                                    np.histogram2d(f["RH_2m"][m3], f["zLCL_LPL"][m3], [E["rh"], E["zlcl"]])[0])
+    ds["h2_rh_zlclLPL_unstable"].attrs.update(x="RH_2m", y="zLCL_LPL", x_edges="edges_rh", y_edges="edges_zlcl",
+                                               units="count", feeds=FEEDS["h2_rh_zlclLPL_unstable"])
     qs = ["delta_FT", "delta_below", "delta_above"]
     for coord, bkey in (("zLCL_LPL", "zlcl"), ("RH_2m", "rh")):
         m = unst & np.isfinite(f[coord])

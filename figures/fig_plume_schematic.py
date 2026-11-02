@@ -64,8 +64,8 @@ def make(out_dir, years=None, weighted=True):
                        Line2D([0], [0], color="k", lw=2, ls=":", label="Convective Parcel Path"),
                        Line2D([0], [0], color=COLOR_LOW, lw=2.5, label="Low RH"),
                        Line2D([0], [0], color=COLOR_HIGH, lw=2.5, label="High RH"),
-                       Patch(fc=SHADE_L, alpha=0.15, label=r"$\delta_{FT}/\epsilon$ (Low RH)"),
-                       Patch(fc=SHADE_H, alpha=0.2, label=r"$\Delta\delta_{FT}/\epsilon$ (High RH growth)")],
+                       Patch(fc=SHADE_L, alpha=0.15, label=r"$\delta_{a}/\epsilon$ (Low RH)"),
+                       Patch(fc=SHADE_H, alpha=0.2, label=r"$\Delta\delta_{a}/\epsilon$ (High RH growth)")],
               fontsize=6, loc="upper left", framealpha=0.9)
     fig.tight_layout()
     facts = {"eps": f"{EPS} km⁻¹", "plume top low RH": f"{topL:.0f} hPa", "plume top high RH": f"{topH:.0f} hPa",

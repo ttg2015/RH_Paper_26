@@ -1,7 +1,7 @@
 """LCL-Binned Decomposition (paper figure): δ_FT = δ_below + δ_above against LCL height and RH.
 
 Port of Paper_Plots-2 cells 135–137 (binned_combined.pdf), T and M unstable events pooled:
-(a) RH_2m × z_LCL,2m density with an RH count strip; (b) mean δ_FT, δ_below, δ_above vs z_LCL,LPL
+(a) RH_2m × z_LCL,LPL density (z_LCL,2m for stage g files before 2026-11-02) with an RH count strip; (b) mean δ_FT, δ_below, δ_above vs z_LCL,LPL
 (100 m bins) with ±1 std (light) and ±1 standard error (dark) bands and a count strip; (c) the same
 vs RH_2m (1 % bins). Heights are above ground (E07 corrected). ε from config/figdata.yaml.
     python figures/fig_lcl_binned.py [--years 1980-2019]
@@ -18,7 +18,7 @@ import style
 Z_COARSEN, RH_COARSEN = 4, 2         # 25 m → 100 m, 0.5 % → 1 %
 MIN_PER_BIN = 5
 COLORS = {"delta_FT": "black", "delta_below": "blue", "delta_above": "red"}
-LABELS = {"delta_FT": r"$\delta_\mathrm{FT}$", "delta_below": r"$\delta_\mathrm{below}$",
+LABELS = {"delta_FT": r"$\delta_\mathrm{a}$", "delta_below": r"$\delta_\mathrm{below}$",
           "delta_above": r"$\delta_\mathrm{above}$"}
 LW, ALPHA_STD, ALPHA_STERR = 3.2, 0.12, 0.35
 SCATTER_CMAP = "Blues"
@@ -81,15 +81,17 @@ def make(out_dir, years=None, weighted=True):
     axh = [fig.add_subplot(gs[0, k]) for k in range(3)]
     ax = [fig.add_subplot(gs[1, k]) for k in range(3)]
 
-    # (a) RH × z_LCL,2m density of unstable events
-    name = "h2_rh_zlcl2m_unstable"
+    # (a) RH × z_LCL density of unstable events: mixed-layer (LPL) air, as in (b); older stage g
+    # files only have the 2 m parcel
+    ml = all("h2_rh_zlclLPL_unstable" in d.hist for d in data.values())
+    name = "h2_rh_zlclLPL_unstable" if ml else "h2_rh_zlcl2m_unstable"
     h = pooled(data, name)
     ex, ey = d0.edges_of(name, "x"), d0.edges_of(name, "y")
     h, ex = FD.coarsen(h, ex, 2, axis=0)
     h, ey = FD.coarsen(h, ey, 4, axis=1)
     im = ax[0].pcolormesh(ex * 100, ey, h.T, cmap=SCATTER_CMAP, rasterized=True)
     fig.colorbar(im, ax=ax[0], label="Count", pad=0.02, shrink=0.85)
-    ax[0].set(xlabel=r"RH$_{2\mathrm{m}}$ (%)", ylabel=r"$z_{\mathrm{LCL,2m}}$ (m)")
+    ax[0].set(xlabel=r"RH$_{2\mathrm{m}}$ (%)", ylabel=r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)" if ml else r"$z_{\mathrm{LCL,2m}}$ (m)")
     ax[0].spines[["top", "right"]].set_visible(False)
     nrh = h.sum(axis=1)
     axh[0].bar(FD.centers(ex) * 100, nrh, width=np.diff(ex)[0] * 100 * 0.9, color="0.5", lw=0)
@@ -101,7 +103,7 @@ def make(out_dir, years=None, weighted=True):
 
     # (b) vs z_LCL,LPL
     x, mean, std, se, cnt, e = stats(pooled(data, "lb_zLCL_LPL"), d0.edges["zlcl"], Z_COARSEN)
-    lines(ax[1], axh[1], x, mean, std, se, cnt, np.diff(e)[0], quantities, r"$z_{\mathrm{LCL,LPL}}$ (m)")
+    lines(ax[1], axh[1], x, mean, std, se, cnt, np.diff(e)[0], quantities, r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)")
     xr_b = trim(x, cnt)
     ax[1].set_xlim(xr_b); axh[1].set_xlim(xr_b)
 
@@ -118,7 +120,7 @@ def make(out_dir, years=None, weighted=True):
                  f"{style.band_text(FD.load('analysis'))}", fontsize=12, y=1.01)
     n = int(cnt.sum())
     facts = {"unstable events": f"{n:,}", "eps": f"{eps:g} km⁻¹", "years": d0.label(),
-             "z_LCL": "above ground (E07 corrected); LPL parcel for (b), 2 m parcel for (a)",
+             "z_LCL": "above ground (E07 corrected); LPL parcel for (b) and " + ("(a)" if ml else "2 m parcel for (a): rerun stage g"),
              "bands": "light = ±1 std, dark = ±1 standard error"}
     return [{"path": FD.save(fig, out_dir, "lcl_binned"), "title": "LCL-Binned Decomposition",
              "facts": facts, "script": "figures/fig_lcl_binned.py"}]

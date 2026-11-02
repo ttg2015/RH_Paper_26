@@ -17,9 +17,9 @@ import style
 WEIGHTED = True                  # a 1D distribution over the globe: cos(lat) weights (E02)
 from fig_excess_hist import HIST_RANGE, LW, MEAN_LW, ZERO_LW, TXT, TITLE, LABEL, TICK
 
-PANELS = [("h2_rh_dtotal", r"Total Excess: $\mathbf{\delta_{\mathrm{total}}}$"),
-          ("h2_rh_dS", r"Surface Jump: $\mathbf{\delta_{S}}$"),
-          ("h2_rh_dFT", r"Free Tropo. Excess: $\mathbf{\delta_{FT}}$")]
+PANELS = [("h2_rh_dtotal", r"Total excess: $\mathbf{\delta}$"),
+          ("h2_rh_dS", r"Surface-layer excess: $\mathbf{\delta_{S}}$"),
+          ("h2_rh_dFT", r"Atmospheric excess: $\mathbf{\delta_{a}}$")]
 
 
 def make(out_dir, years=None, weighted=True):

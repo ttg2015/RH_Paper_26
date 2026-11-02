@@ -3,10 +3,10 @@ import matplotlib as mpl
 
 EVENT_COLOR = {"T": "#C0392B", "M": "#2471A3"}            # as in Paper_Plots-2
 EVENT_LABEL = {"T": "T$_{2m}$ extremes", "M": "h$_{2m}$ (wet-bulb) extremes"}
-DELTA_LABEL = {"delta_FT": r"$\delta_{FT} = h_{LPL} - h^*_{500}$",
-               "delta_S": r"$\delta_{S} = h_{2m} - h_{LPL}$",
-               "delta_total": r"$\delta_{total} = h_{2m} - h^*_{500}$"}
-DELTA_SHORT = {"delta_FT": r"$\delta_{FT}$", "delta_S": r"$\delta_S$", "delta_total": r"$\delta_{total}$"}
+DELTA_LABEL = {"delta_FT": r"$\delta_{a} = h_{ML} - h^*_{500}$",
+               "delta_S": r"$\delta_{S} = h_{2m} - h_{ML}$",
+               "delta_total": r"$\delta = h_{2m} - h^*_{500}$"}
+DELTA_SHORT = {"delta_FT": r"$\delta_{a}$", "delta_S": r"$\delta_S$", "delta_total": r"$\delta$"}
 SUBBAND_LABEL = {"all": "", "TP": "tropics", "ST": "subtropics", "ML": "midlatitudes"}
 
 
