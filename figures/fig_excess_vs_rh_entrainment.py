@@ -1,9 +1,10 @@
 """Excess vs RH, entrainment view: the log-RH plume model on the event plane.
 
-The plume picture gives δ_FT = Γ_h · C · ln(RH0 / RH) (Cascade_Summary log-RH model, constant
-C = 2 km). RH0 is fixed at the pooled mean's zero crossing (E11), so only K = Γ_h·C is fitted,
-by count-weighted least squares on the mean curve inside the RH window. Also shown: the first-
-order (linear) Taylor form K·(1 − RH/RH0). The window is drawn exactly as fitted (E11).
+The plume picture gives δ_a = Γ_h · C · ln(RH / RH0) with Γ_h = −dh_ML/dz_LCL > 0 (Cascade_Summary
+log-RH model, constant C = 2 km). RH0 is fixed at the pooled mean's zero crossing (E11), so only
+K = Γ_h·C is fitted, by count-weighted least squares on the mean curve inside the RH window. Also
+shown: the first-order (linear) Taylor form K·(RH/RH0 − 1). The fit runs on the old basis
+ln(RH0/RH), so K = −k. The window is drawn exactly as fitted (E11).
     python figures/fig_excess_vs_rh_entrainment.py [--years 1980-2019] [--unweighted]
 """
 import matplotlib
@@ -38,8 +39,8 @@ def make(out_dir, years=None, weighted=True):
     facts = {"RH0 (fixed, from crossing)": f"{rh0:.3f}", "fit window": f"{WINDOW[0]:.2f}–{WINDOW[1]:.2f}"}
     xs = np.linspace(0.05, 1.0, 400)
     in_window = np.isfinite(m) & (x >= WINDOW[0]) & (x <= WINDOW[1])
-    forms = (("log", "k", "-", r"$\Gamma_h C\,\ln(RH_0/RH)$"),
-             ("lin", "#00897b", "--", r"$\Gamma_h C\,(1-RH/RH_0)$"))
+    forms = (("log", "k", "-", r"$\Gamma_h C\,\ln(RH/RH_0)$"),
+             ("lin", "#00897b", "--", r"$\Gamma_h C\,(RH/RH_0-1)$"))
     if not np.isfinite(rh0) or not in_window.any():
         forms = ()
         facts["fit"] = "skipped: no zero crossing or no populated bins in the window"
@@ -52,7 +53,7 @@ def make(out_dir, years=None, weighted=True):
         axr.plot(x, m - pred, color=color, ls=ls, lw=1.5)
         ok = np.isfinite(m) & (x >= WINDOW[0]) & (x <= WINDOW[1])
         rmse = np.sqrt(np.average((m[ok] - pred[ok]) ** 2, weights=n[ok]))
-        facts[f"{form} fit"] = f"Γ_h·C = {k:.2f} kJ/kg → Γ_h = {k / C_KM:.2f} kJ/kg/km (C = {C_KM:g} km), RMSE {rmse:.2f} kJ/kg in window"
+        facts[f"{form} fit"] = f"Γ_h·C = {-k:.2f} kJ/kg → Γ_h = {-k / C_KM:.2f} kJ/kg/km (C = {C_KM:g} km), RMSE {rmse:.2f} kJ/kg in window"
     for a in (ax, axr):
         a.axvspan(*WINDOW, color="#fff59d", alpha=0.25, zorder=0)
         for v in WINDOW:
