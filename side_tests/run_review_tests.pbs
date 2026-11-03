@@ -1,0 +1,24 @@
+#!/bin/bash -l
+# Review checks (review_tests.py): sensitivity for all 40 years, plume null test for every 4th year.
+# Finished files are skipped, so a resubmit picks up where it stopped.
+# Submit from the repo root:   qsub side_tests/run_review_tests.pbs
+#PBS -N review_tests
+#PBS -A UNYU0020
+#PBS -q casper
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=8:mem=128GB
+#PBS -j oe
+#PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/review_tests.log
+
+module load conda && conda activate npl
+cd "$PBS_O_WORKDIR"
+export OMP_NUM_THREADS=1
+OUT=/glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/side_tests/review
+mkdir -p "$OUT"
+for y in $(seq 1980 2019); do for e in T M; do
+  if [ $(( (y - 1980) % 4 )) -eq 0 ]; then flag=""; else flag="--no-null"; fi
+  [ -f "$OUT/review_${e}_${y}.npz" ] || echo "$y $e $flag"
+done; done \
+  | xargs -P 8 -L 1 sh -c 'python -W ignore side_tests/review_tests.py run "$0" "$1" --out '"$OUT"' $2 || echo "FAILED $0 $1"'
+python side_tests/review_tests.py report --out "$OUT" > /dev/null
+echo "=== DONE: $OUT/review_report.md"

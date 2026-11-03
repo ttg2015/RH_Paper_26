@@ -15,7 +15,8 @@ Outputs go to `<work>/side_tests/` on scratch.
 | 3 stage f categories vs δ_a | `t345_events.py` | stage f rerun with stable / diluted-out codes |
 | 4 η and closure, h* uniformity | `t345_events.py` | stage f files |
 | 5 per-box cascade slope Γ_h | `t345_events.py` | stage d files |
-| 6 alternative mixed layers | not written (later) | — |
+| 6 alternative mixed layers, terrain, 400/600 hPa, plume null (2026-11-02 review) | `review_tests.py` + `run_review_tests.pbs` | stage d files |
+| blue numbers the figure facts don't give | `blue_checks.py` (login node) | stage g files |
 | 7 model vs pressure levels | `t7_model_levels.py` **parked: not in the job, never run** | — |
 
 ## Commands (on Casper, repo root)
