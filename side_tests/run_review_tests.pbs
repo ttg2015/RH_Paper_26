@@ -17,7 +17,7 @@ OUT=/glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/side_tests/review
 mkdir -p "$OUT"
 for y in $(seq 1980 2019); do for e in T M; do
   if [ $(( (y - 1980) % 4 )) -eq 0 ]; then flag=""; else flag="--no-null"; fi
-  [ -f "$OUT/review_${e}_${y}.npz" ] || echo "$y $e $flag"
+  [ -f "$OUT/review_${e}_${y}.npz" ] || echo "$y $e${flag:+ $flag}"   # no trailing blank: xargs -L would join lines
 done; done \
   | xargs -P 8 -L 1 sh -c 'python -W ignore side_tests/review_tests.py run "$0" "$1" --out '"$OUT"' $2 || echo "FAILED $0 $1"'
 python side_tests/review_tests.py report --out "$OUT" > /dev/null
