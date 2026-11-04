@@ -58,7 +58,7 @@ def draw_plane(ax, ex, ey, H, labels=True):
         cs = ax.contour(xc, yc, he, levels=[v for _, v in order], colors=EVENT_LINE[e],
                         linewidths=2.0, alpha=0.9)
         if labels:
-            ax.clabel(cs, cs.levels, fmt={v: f"{int(f * 100)}%" for f, v in order}, fontsize=8, inline=True)
+            ax.clabel(cs, cs.levels, fmt={v: f"{int(f * 100)}%" for f, v in order}, fontsize=6, inline=True)
     return cf
 
 
@@ -66,7 +66,7 @@ def make(out_dir, years=None, weighted=True):
     style.apply()
     data, ex, ey, H = plane(years, weighted)
     d0 = data["T"]
-    fig = plt.figure(figsize=(7, 7))
+    fig = plt.figure(figsize=(3.7, 4.0))
     gs = fig.add_gridspec(2, 1, height_ratios=[1, 5], hspace=0.05)
     axc = fig.add_subplot(gs[0])
     ax = fig.add_subplot(gs[1], sharex=axc)
@@ -77,10 +77,10 @@ def make(out_dir, years=None, weighted=True):
     rh0 = FD.rh0(data)                                 # unweighted, same number every figure uses
     if np.isfinite(rh0):
         ax.plot(rh0, 0, "o", ms=7, mfc="white", mec="k", zorder=6)
-        ax.annotate(f"RH$_0$ = {rh0:.3f}", (rh0, 0), xytext=(8, -16), textcoords="offset points", fontsize=9)
+        ax.annotate(f"RH$_0$ = {rh0:.3f}", (rh0, 0), xytext=(8, -16), textcoords="offset points", fontsize=7)
     ax.axhline(0, color="k", lw=1.5, ls=":")
-    ax.text(0.25, 13.0, "Unstable", fontsize=20, va="center")
-    ax.text(0.42, -10.0, "Stable", fontsize=20, va="center")
+    ax.text(0.25, 13.0, "Unstable", fontsize=11, va="center")
+    ax.text(0.42, -10.0, "Stable", fontsize=11, va="center")
 
     # count strip: T, M and their combined counts (E09: counts are added, not the RH values)
     for e, color, lab in (("T", EVENT_LINE["T"], None), ("M", EVENT_LINE["M"], None),
@@ -89,11 +89,11 @@ def make(out_dir, years=None, weighted=True):
         hx, exx = FD.coarsen(h, ex, MEAN_COARSEN, axis=0)
         n = hx.sum(axis=1)
         axc.step(FD.centers(exx), n, where="mid", color=color, lw=1.5)
-    axc.set_ylabel("events" + (" (cos-wt)" if weighted else ""), fontsize=9)
-    axc.tick_params(labelbottom=False, labelsize=8)
+    axc.set_ylabel("events" + (" (cos-wt)" if weighted else ""), fontsize=7)
+    axc.tick_params(labelbottom=False, labelsize=7)
     axc.set_ylim(bottom=0)
     axc.set_title(fr"$\delta_{{a}}$ vs RH · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}",
-                  fontsize=10)
+                  fontsize=7)
 
     fig.canvas.draw()
     pos = ax.get_position()
@@ -102,7 +102,7 @@ def make(out_dir, years=None, weighted=True):
     ax.legend(handles=[mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=r"$T_{2m}$ max"),
                        mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=r"$h_{2m}$ max"),
                        mlines.Line2D([], [], color="gray", lw=1.5, marker=".", ms=6,
-                                     label=r"Mean $\delta_{a}$")], loc="upper left", fontsize=8)
+                                     label=r"Mean $\delta_{a}$")], loc="upper left", fontsize=6)
     ax.set(xlim=XRANGE, ylim=YRANGE, xlabel="RH", ylabel=r"$\delta_{a}$ [kJ/kg]")
     facts = {"RH0 (pooled mean crosses 0)": f"{rh0:.3f}", "years": d0.label(),
              "weighting": "cos(lat)" if weighted else "none",

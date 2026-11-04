@@ -41,19 +41,21 @@ def make(out_dir, years=None, weighted=True):
         if dh:
             for j, T in enumerate(Tw_C + 273.15):
                 Z[i, j] = dTw_from_excess(T, P_HPA, dh)
-    fig, ax = plt.subplots(figsize=(7, 5))
+    fig, ax = plt.subplots(figsize=(3.7, 3.0))  # one journal column (19pc)
+    ax.tick_params(labelsize=8)
     cf = ax.contourf(Tw_C, dH, Z, levels=np.linspace(0.0, Z.max(), 40), cmap="magma")
     cs = ax.contour(Tw_C, dH, Z, levels=np.arange(1.0, Z.max(), 1.0), colors="white", linewidths=0.7, alpha=0.7)
-    ax.clabel(cs, inline=True, fontsize=7, fmt="%.0f K")
+    ax.clabel(cs, inline=True, fontsize=6, fmt="%.0f K")
     cs2 = ax.contour(Tw_C, dH, Tw_C[None, :] + Z, levels=np.arange(20.0, 51.0, 5.0), colors="#34d8d8",
                      linewidths=1.0, linestyles="--")
-    ax.clabel(cs2, inline=True, fontsize=7, fmt="%.0f°C")
+    ax.clabel(cs2, inline=True, fontsize=6, fmt="%.0f°C")
     ax.legend(handles=[Line2D([0], [0], color="white", lw=0.9, label="Increase ΔTw [K]"),
                        Line2D([0], [0], color="#34d8d8", lw=1.0, ls="--", label="Resulting Tw [°C]")],
-              loc="lower right", fontsize=8, framealpha=0.3)
-    fig.colorbar(cf, ax=ax).set_label("Wet-bulb temperature increase [K]")
+              loc="lower right", fontsize=6, framealpha=0.3)
+    fig.colorbar(cf, ax=ax, ticks=np.arange(0.0, Z.max() + 0.5, 2.0)).set_label(r"Wet-bulb increase $\Delta T_w$ [K]")
     ax.set(xlabel="Wet-bulb temperature [°C]", ylabel="Excess MSE, dH [kJ/kg]",
            title="Wet-bulb amplification of excess energy")
+    ax.title.set_fontsize(9)
     fig.tight_layout()
     k = np.argmin(abs(Tw_C - 30)), np.argmin(abs(dH - 10))
     return [{"path": FD.save(fig, out_dir, "wbt_increase"), "title": "WBT Increase from Excess",

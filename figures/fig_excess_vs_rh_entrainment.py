@@ -31,7 +31,7 @@ def make(out_dir, years=None, weighted=True):
     style.apply()
     data, ex, ey, H = plane(years, weighted)
     d0 = data["T"]
-    fig, (ax, axr) = plt.subplots(2, 1, figsize=(7, 8), sharex=True, gridspec_kw={"height_ratios": [4, 1.3]})
+    fig, (ax, axr) = plt.subplots(2, 1, figsize=(3.7, 4.6), sharex=True, gridspec_kw={"height_ratios": [4, 1.3]})
     draw_plane(ax, ex, ey, H, labels=False)
     x, m, n = mean_curve(H["T"] + H["M"], ex, ey)
     rh0 = FD.zero_crossing(x[::-1], m[::-1])
@@ -64,10 +64,11 @@ def make(out_dir, years=None, weighted=True):
     ax.axhline(0, color="k", lw=1.2, ls=":")
     if np.isfinite(rh0):
         ax.axvline(rh0, color="k", lw=0.8, alpha=0.6)
-        ax.text(rh0, YRANGE[1] * 0.93, f" RH$_0$ = {rh0:.3f}", fontsize=9)
-    ax.legend(loc="upper right", fontsize=8)
+        ax.text(rh0, YRANGE[1] * 0.93, f" RH$_0$ = {rh0:.3f}", fontsize=7)
+    ax.legend(loc="upper right", fontsize=6)
     ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ [kJ/kg]",
            title=f"Entrainment view: log-RH plume model · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}")
+    ax.title.set_fontsize(7)
     axr.axhline(0, color="k", lw=0.8)
     axr.set(xlabel="RH", ylabel="mean − model\n[kJ/kg]", ylim=(-4, 4))
     fig.tight_layout()
