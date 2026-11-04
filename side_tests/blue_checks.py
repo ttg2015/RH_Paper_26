@@ -5,7 +5,7 @@
 Writes <work>/side_tests/blue_checks.md. All unweighted (conditional statistics), figure mask.
   1  cluster centres of T and M events in the (RH, δ_a) plane       (Section 6a, "RH ≈ 0.1, −3" etc.)
   2  T vs M at fixed RH: δ_a and δ_S, signed, per 0.05 RH bin       ("below about 0.6", "1.8 more δ_S")
-  3  near-surface MSE across the RH bins of each cascade box         ("about 20 kJ/kg")
+  3  near-surface MSE and T across the RH bins of each cascade box   ("about 20 kJ/kg", no compensation)
   4  ε for which a composite plume reaches h*500 at 500 hPa          ("about 0.1 km⁻¹")
   5  δ_below against the LCL height, per event type                 ("smallest for shallow layers")
 """
@@ -83,13 +83,19 @@ def main(argv=None):
             lev, z = d.levels.astype(float), c["Z"] / 9.8                    # kJ/kg → km
             k500 = int(np.argmin(abs(lev - 500)))
             er = eps_required(lev, z, c["MSE"], c["h_LPL"], c["p_LPL"], c["MSE_sat"][k500])
-            rows.append((lo, hi, c["n"], c["h_LPL"], er))
+            t_low = np.nan
+            if "T" in c:                                                     # lowest level present in the composite
+                fin = np.flatnonzero(np.isfinite(c["T"]))
+                if len(fin):
+                    t_low = c["T"][fin[np.argmax(lev[fin])]]
+            rows.append((lo, hi, c["n"], c["h_LPL"], er, t_low))
             eps_rows.append((case, lo, er, c["n"]))
         if rows:
-            hv = [r[3] for r in rows]
+            hv, tv = [r[3] for r in rows], [r[5] for r in rows]
             L.append(f"- {case}: h_LPL from {hv[0]:.1f} (RH {rows[0][0]:.2f}–{rows[0][1]:.2f}) to {hv[-1]:.1f} "
                      f"(RH {rows[-1][0]:.2f}–{rows[-1][1]:.2f}): rise **{hv[-1] - hv[0]:+.1f}**, range "
-                     f"{max(hv) - min(hv):.1f} kJ/kg over {len(rows)} bins")
+                     f"{max(hv) - min(hv):.1f} kJ/kg over {len(rows)} bins; T at the lowest level "
+                     f"{tv[0]:.1f} → {tv[-1]:.1f} K (**{tv[-1] - tv[0]:+.1f}**)")
     L.append("")
 
     L += ["## 4 · ε for a composite plume to reach h*500 at 500 hPa (bins with h_LPL > h*500)", "",

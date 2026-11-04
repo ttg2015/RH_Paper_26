@@ -17,6 +17,7 @@ Outputs go to `<work>/side_tests/` on scratch.
 | 5 per-box cascade slope Γ_h | `t345_events.py` | stage d files |
 | 6 alternative mixed layers, terrain, 400/600 hPa, plume null (2026-11-02 review) | `review_tests.py` + `run_review_tests.pbs` | stage d files |
 | blue numbers the figure facts don't give | `blue_checks.py` (login node) | stage g files |
+| h_ML spread inside the null cells; latitude and h*500 per RH bin | `cell_spread.py` (login node or qcmd) | profiles + derived, one level |
 | 7 model vs pressure levels | `t7_model_levels.py` **parked: not in the job, never run** | — |
 
 ## Commands (on Casper, repo root)

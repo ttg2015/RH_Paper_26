@@ -54,6 +54,9 @@ def make(out_dir, years=None, weighted=True):
         ok = np.isfinite(m) & (x >= WINDOW[0]) & (x <= WINDOW[1])
         rmse = np.sqrt(np.average((m[ok] - pred[ok]) ** 2, weights=n[ok]))
         facts[f"{form} fit"] = f"Γ_h·C = {-k:.2f} kJ/kg → Γ_h = {-k / C_KM:.2f} kJ/kg/km (C = {C_KM:g} km), RMSE {rmse:.2f} kJ/kg in window"
+        for e in ("T", "M"):                                      # same fit, same RH0, one event type
+            xe, me, ne = mean_curve(H[e], ex, ey)
+            facts[f"{form} fit {e} only"] = f"Γ_h·C = {-fit_k(xe, me, ne, rh0, WINDOW, form):.2f} kJ/kg (RH0 pooled)"
     for a in (ax, axr):
         a.axvspan(*WINDOW, color="#fff59d", alpha=0.25, zorder=0)
         for v in WINDOW:
