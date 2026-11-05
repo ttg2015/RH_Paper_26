@@ -25,6 +25,8 @@ QUANTITIES = [("delta_total", r"Total excess: $\mathbf{\delta}$"),
 TEMP_COLOR, MSE_COLOR = "#C0392B", "#2471A3"
 LW, MEAN_LW, ZERO_LW = 2.5, 1.8, 1.5
 TXT, TITLE, LABEL, TICK = 13, 15, 13, 11
+# the paper figure is drawn at one journal column (19pc); the shared constants above stay for fig_excess_hist_rh
+COL = dict(LW=1.3, MEAN_LW=1.0, ZERO_LW=0.8, TXT=7, TITLE=8, LABEL=7.5, TICK=6.5, SPINE=0.8)
 
 
 def hist(d, q, weighted):
@@ -38,42 +40,44 @@ def hist(d, q, weighted):
 def panel(ax, q, title, data, weighted, show_x):
     ax.set_facecolor("#F8F9FA")
     for s in ("bottom", "left"):
-        ax.spines[s].set_linewidth(1.2)
+        ax.spines[s].set_linewidth(COL["SPINE"])
         ax.spines[s].set_color("#444444")
-    ax.axvline(0, c="#333333", lw=ZERO_LW, zorder=2)
+    ax.axvline(0, c="#333333", lw=COL["ZERO_LW"], zorder=2)
     means = {}
     for e, color in (("T", TEMP_COLOR), ("M", MSE_COLOR)):
         x, c, mean = hist(data[e], q, weighted)
+        c = c / 1000.0                                            # thousands of events
         ax.fill_between(x, c, alpha=0.12, color=color, zorder=1)
-        ax.plot(x, c, c=color, lw=LW, zorder=3)
-        ax.axvline(mean, c=color, alpha=0.85, ls="--", lw=MEAN_LW, zorder=4)
+        ax.plot(x, c, c=color, lw=COL["LW"], zorder=3)
+        ax.axvline(mean, c=color, alpha=0.85, ls="--", lw=COL["MEAN_LW"], zorder=4)
         means[e] = mean
     ax.text(0.04, 0.95, r"$\overline{\delta_{T_{\max}}}$" + f" = {means['T']:.2f} kJ kg$^{{-1}}$",
-            color=TEMP_COLOR, transform=ax.transAxes, ha="left", va="top", fontsize=TXT, fontweight="bold")
-    ax.text(0.04, 0.80, r"$\overline{\delta_{WBT_{\max}}}$" + f" = {means['M']:.2f} kJ kg$^{{-1}}$",
-            color=MSE_COLOR, transform=ax.transAxes, ha="left", va="top", fontsize=TXT, fontweight="bold")
+            color=TEMP_COLOR, transform=ax.transAxes, ha="left", va="top", fontsize=COL["TXT"], fontweight="bold")
+    ax.text(0.04, 0.78, r"$\overline{\delta_{WBT_{\max}}}$" + f" = {means['M']:.2f} kJ kg$^{{-1}}$",
+            color=MSE_COLOR, transform=ax.transAxes, ha="left", va="top", fontsize=COL["TXT"], fontweight="bold")
     ax.set_xlim(HIST_RANGE)
     ax.set_ylim(bottom=0)
-    ax.tick_params(labelsize=TICK, length=4, width=1.1)
-    ax.set_title(title, fontsize=TITLE, fontweight="bold", pad=8)
-    ax.set_ylabel("Count" + (" (cos-lat weighted)" if weighted else ""), fontsize=LABEL)
+    ax.tick_params(labelsize=COL["TICK"], length=2.5, width=0.7, pad=2)
+    ax.set_title(title, fontsize=COL["TITLE"], fontweight="bold", pad=3)
+    ax.set_ylabel(r"Events [$10^3$]", fontsize=COL["LABEL"])           # weighting stated in the caption
     if show_x:
-        ax.set_xlabel(r"$\delta$ [kJ kg$^{-1}$]", fontsize=LABEL)
+        ax.set_xlabel(r"$\delta$ [kJ kg$^{-1}$]", fontsize=COL["LABEL"])
     return means
 
 
 def figure(data, weighted):
     band = style.band_text(FD.load("analysis"))
-    fig, axes = plt.subplots(3, 1, figsize=(8, 10), facecolor="white")
+    fig, axes = plt.subplots(3, 1, figsize=(3.7, 5.6), facecolor="white")
     means = {}
     for k, (ax, (q, title)) in enumerate(zip(axes, QUANTITIES)):
-        means[q] = panel(ax, q, f"{title} — {band}", data, weighted, k == 2)
-    fig.legend(handles=[Line2D([0], [0], color=TEMP_COLOR, lw=LW, label=r"Temperature $\delta$"),
-                        Line2D([0], [0], color=MSE_COLOR, lw=LW, label=r"WBT $\delta$"),
-                        Line2D([0], [0], color=TEMP_COLOR, lw=MEAN_LW, ls="--", alpha=0.85, label="Temperature mean"),
-                        Line2D([0], [0], color=MSE_COLOR, lw=MEAN_LW, ls="--", alpha=0.85, label="WBT mean")],
-               loc="lower center", ncol=4, frameon=False, fontsize=11, bbox_to_anchor=(0.5, -0.02))
-    fig.tight_layout(rect=[0, 0.04, 1, 1])
+        means[q] = panel(ax, q, title, data, weighted, k == 2)     # band and years go in the caption
+    fig.legend(handles=[Line2D([0], [0], color=TEMP_COLOR, lw=COL["LW"], label=r"Temperature $\delta$"),
+                        Line2D([0], [0], color=MSE_COLOR, lw=COL["LW"], label=r"WBT $\delta$"),
+                        Line2D([0], [0], color=TEMP_COLOR, lw=COL["MEAN_LW"], ls="--", alpha=0.85, label="Temperature mean"),
+                        Line2D([0], [0], color=MSE_COLOR, lw=COL["MEAN_LW"], ls="--", alpha=0.85, label="WBT mean")],
+               loc="lower center", ncol=2, frameon=False, fontsize=6.5, bbox_to_anchor=(0.5, 0.0),
+               handlelength=2.0, columnspacing=1.2)
+    fig.tight_layout(rect=[0, 0.07, 1, 1], h_pad=0.6)
     return fig, means
 
 
