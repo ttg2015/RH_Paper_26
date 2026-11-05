@@ -70,7 +70,7 @@ def figure(data, weighted):
     fig, axes = plt.subplots(3, 1, figsize=(3.7, 5.6), facecolor="white")
     means = {}
     for k, (ax, (q, title)) in enumerate(zip(axes, QUANTITIES)):
-        means[q] = panel(ax, q, title, data, weighted, k == 2)     # band and years go in the caption
+        means[q] = panel(ax, q, f"({'abc'[k]}) {title}", data, weighted, k == 2)   # band and years go in the caption
     fig.legend(handles=[Line2D([0], [0], color=TEMP_COLOR, lw=COL["LW"], label=r"Temperature $\delta$"),
                         Line2D([0], [0], color=MSE_COLOR, lw=COL["LW"], label=r"WBT $\delta$"),
                         Line2D([0], [0], color=TEMP_COLOR, lw=COL["MEAN_LW"], ls="--", alpha=0.85, label="Temperature mean"),
