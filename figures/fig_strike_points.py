@@ -13,6 +13,7 @@ Figure 2 (strike_map): mean plume-top pressure at ε_detail per land cell, T and
 """
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.patheffects as pe_
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -22,6 +23,7 @@ import style
 
 P_COARSEN = 2                    # 5 → 10 hPa for the distributions
 WINDOW = None                    # read from config/analysis.yaml
+HALO = [pe_.withStroke(linewidth=3.6, foreground="#1b1b1b")]   # white lines readable on light and dark bins
 
 
 def quantile_p(h, pc, q):
@@ -46,8 +48,8 @@ def make(out_dir, years=None, weighted=True):
     pe = d0.edges["ptop"]
     facts = {}
 
-    fig = plt.figure(figsize=(13, 10))
-    gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.25)
+    fig = plt.figure(figsize=(12, 9.6))
+    gs = fig.add_gridspec(2, 2, hspace=0.32, wspace=0.22)
     for j, e in enumerate(("T", "M")):
         d = data[e]
         ax = fig.add_subplot(gs[0, j])
@@ -59,59 +61,68 @@ def make(out_dir, years=None, weighted=True):
         share = hc / np.where(total[:, None] > 0, total[:, None], np.nan)
         x_e = np.concatenate([[eps[0] - (eps[1] - eps[0]) / 2], (eps[1:] + eps[:-1]) / 2,
                               [eps[-1] + (eps[-1] - eps[-2]) / 2]])
-        im = ax.pcolormesh(x_e, pc_e, np.ma.masked_equal(share.T, 0) * 100, cmap="viridis", shading="flat")
-        fig.colorbar(im, ax=ax, label="% of unstable events per 10 hPa", pad=0.02)
+        style.paper_axes(ax, minor=False)
+        im = ax.pcolormesh(x_e, pc_e, share.T * 100, cmap=style.DENSITY_CMAP, shading="flat", vmin=0,
+                           rasterized=True)                      # empty bins show the palest colour, not white gaps
+        cb = fig.colorbar(im, ax=ax, label="% of unstable events per 10 hPa", pad=0.02)
+        cb.outline.set_edgecolor(style.SPINE)
         pc = FD.centers(pe)
         med = [quantile_p(h[k], pc, 0.5) for k in range(len(eps))]
         medf = [quantile_p(hf[k], pc, 0.5) for k in range(len(eps))]
-        ax.plot(eps, med, "w-o", ms=4, lw=2, label="median top")
-        ax.plot(eps, medf, "w--", lw=1.5, label="median first crossing")
+        ax.plot(eps, med, "w-o", ms=4.5, lw=2.2, mec="#1b1b1b", mew=0.8, label="median top", path_effects=HALO)
+        ax.plot(eps, medf, "w--", lw=1.6, label="median first crossing", path_effects=HALO)
         for p in (lo, hi):
-            ax.axhline(p, color="#ff7043", lw=1.5, ls="--")
+            ax.axhline(p, color=style.WINDOW_COLOR, lw=1.6, ls=(0, (5, 3)))
         buoy = 1 - FD.unstable_counts(cat)[2][5]                        # not diluted out
         from matplotlib.transforms import blended_transform_factory
         tr = blended_transform_factory(ax.transData, ax.transAxes)
         for k, b in enumerate(buoy):
-            ax.text(eps[k], 1.01, f"{100 * b:.0f}", transform=tr, ha="center", va="bottom", fontsize=6,
+            ax.text(eps[k], 1.01, f"{100 * b:.0f}%", transform=tr, ha="center", va="bottom", fontsize=7, color=style.SPINE,
                     rotation=90 if len(eps) > 12 else 0)
         ax.set(ylim=(1000, 100), xlabel="ε [km⁻¹]", ylabel="plume top [hPa]")
-        ax.set_title(f"{style.EVENT_LABEL[e]} · stable {100 * stable[0] / (stable[0] + total[0]):.0f}% left out"
-                     "\n(numbers above: % of unstable events still buoyant)", pad=16)
-        ax.legend(fontsize=7, loc="lower right", facecolor="0.3", labelcolor="w", framealpha=0.6)
+        ax.set_title(f"({'ab'[j]}) {style.EVENT_LABEL[e]} · {100 * stable[0] / (stable[0] + total[0]):.0f}% stable",
+                     pad=16, fontweight="bold", loc="left")
+        ax.legend(fontsize=7.5, loc="lower right", facecolor="white", framealpha=0.85, edgecolor="none")
         frac_window = h[kd][(pc >= lo) & (pc <= hi)].sum() / total[kd] if total[kd] else np.nan
         facts[f"{e}: median top at ε={eps[kd]:g}"] = f"{med[kd]:.0f} hPa (first crossing {medf[kd]:.0f} hPa)"
         facts[f"{e}: share of unstable events topping in {lo}–{hi} hPa at ε={eps[kd]:g}"] = f"{100 * frac_window:.0f}%"
 
     # (c) distributions at ε_detail
-    ax = fig.add_subplot(gs[1, 0])
+    ax = style.paper_axes(fig.add_subplot(gs[1, 0]))
     for e, d in data.items():
         for var, ls in (("strike_ptop", "-"), ("strike_ptop_first", "--")):
             h = d.hist[var + suf][d.subbands.index("all"), kd]
             hc, pc_e = FD.coarsen(h, pe, P_COARSEN)
-            ax.plot(100 * hc / max(hc.sum(), 1), FD.centers(pc_e), color=style.EVENT_COLOR[e], ls=ls, lw=1.8,
-                    label=f"{e} {'top' if var == 'strike_ptop' else 'first crossing'}")
-    ax.axhspan(hi, lo, color="#ff7043", alpha=0.12)
-    ax.set(ylim=(1000, 100), xlabel="% of buoyant plumes per 10 hPa", ylabel="plume top [hPa]",
-           title=f"Top distributions at ε = {eps[kd]:g} km⁻¹")
-    ax.legend(fontsize=7)
+            xs = 100 * hc / max(hc.sum(), 1)
+            if ls == "-":
+                ax.fill_betweenx(FD.centers(pc_e), 0, xs, color=style.EVENT_COLOR[e], alpha=0.12, lw=0)
+            ax.plot(xs, FD.centers(pc_e), color=style.EVENT_COLOR[e], ls=ls, lw=2.4 if ls == "-" else 1.5,
+                    label=f"{style.EVENT_LABEL[e].split(' extremes')[0]} {'top' if var == 'strike_ptop' else 'first crossing'}")
+    ax.axhspan(hi, lo, color=style.WINDOW_COLOR, alpha=0.08, lw=0)
+    for p in (lo, hi):
+        ax.axhline(p, color=style.WINDOW_COLOR, lw=1.2, ls=(0, (5, 3)))
+    ax.set(ylim=(1000, 100), xlabel="% of buoyant plumes per 10 hPa", ylabel="plume top [hPa]")
+    ax.set_xlim(left=0)
+    ax.set_title(f"(c) Top distributions at ε = {eps[kd]:g} km⁻¹", fontweight="bold", loc="left")
+    ax.legend(fontsize=7.5, frameon=False, loc="lower right")
 
     # (d) RH × top
-    ax = fig.add_subplot(gs[1, 1])
+    ax = style.paper_axes(fig.add_subplot(gs[1, 1]), minor=False)
     h2 = sum(d.hist["strike_rh_ptop"] for d in data.values())
     ex = d0.edges["rh"]
     h2, ey = FD.coarsen(h2, pe, P_COARSEN, axis=1)
-    im = ax.pcolormesh(ex, ey, np.ma.masked_equal(h2.T, 0), cmap="Purples", shading="flat")
-    fig.colorbar(im, ax=ax, label="events", pad=0.02)
+    im = ax.pcolormesh(ex, ey, np.ma.masked_equal(h2.T, 0), cmap=style.DENSITY_CMAP, shading="flat", rasterized=True)
+    cb = fig.colorbar(im, ax=ax, label="events", pad=0.02)
+    cb.outline.set_edgecolor(style.SPINE)
     pcs = FD.centers(ey)
     med = np.array([quantile_p(row, pcs, 0.5) if row.sum() >= 20 else np.nan for row in h2])   # 0.5 % RH bins
-    ax.plot(FD.centers(ex), med, color="k", lw=2, label="median top")
+    ax.plot(FD.centers(ex), med, color="white", lw=2.2, label="median top", path_effects=HALO)
     for p in (lo, hi):
-        ax.axhline(p, color="#ff7043", lw=1.5, ls="--")
-    ax.set(xlim=(0, 1), ylim=(1000, 100), xlabel="RH$_{2m}$", ylabel="plume top [hPa]",
-           title=f"Where plumes top out vs surface RH (T + M, ε = {eps[kd]:g})")
-    ax.legend(fontsize=7, loc="lower right")
-    fig.suptitle(f"Plume strike points · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)} "
-                 "· low terrain (stage f mask)", fontsize=12)
+        ax.axhline(p, color=style.WINDOW_COLOR, lw=1.6, ls=(0, (5, 3)))
+    ax.set(xlim=(0, 1), ylim=(1000, 100), xlabel="RH$_{2m}$", ylabel="plume top [hPa]")
+    ax.set_title(f"(d) Plume tops vs surface RH (T + M, ε = {eps[kd]:g} km⁻¹)", fontweight="bold", loc="left")
+    ax.legend(fontsize=7.5, loc="lower right", facecolor="white", framealpha=0.85, edgecolor="none")
+    # years, band, weighting and mask are in the caption
     facts.update(years=d0.label(), weighting="cos(lat)" if weighted else "none",
                  note="share in (a, b) is of the unstable events (buoyant at ε = 0), so it fades where plumes dilute out")
     items = [{"path": FD.save(fig, out_dir, "strike_points"), "title": "Plume strike points", "facts": facts,

@@ -42,7 +42,8 @@ def make(out_dir, years=None, weighted=True):
             raise ValueError(f"no {CASE} events with RH {rng[0]:.2f}–{rng[1]:.2f} in these years")
     pL, hpL, envL, topL = plume_on(d.levels, lo)
     pH, hpH, envH, topH = plume_on(d.levels, hi)
-    fig, ax = plt.subplots(figsize=(4.2, 4.8))
+    fig, ax = plt.subplots(figsize=(3.6, 3.9))                        # compact, as the Paper_Plots-2 original
+    style.paper_axes(ax)
     # common pressure axis for shading (log-p interpolation)
     pg = np.exp(np.linspace(np.log(min(pL[0], pH[0])), np.log(100), 300))
     at = lambda p, v: np.interp(np.log(pg), np.log(p[::-1]), v[::-1], left=np.nan, right=np.nan)
@@ -58,7 +59,8 @@ def make(out_dir, years=None, weighted=True):
     ax.plot(np.where(below_L, cL, np.nan), pg, color=COLOR_LOW, lw=2, ls=":")
     ax.plot(np.where(below_H, cH, np.nan), pg, color=COLOR_HIGH, lw=2, ls=":")
     ax.set(ylim=(1000, 100), xlim=(320, 345), xlabel=r"MSE (kJ kg$^{-1}$)", ylabel="Pressure (hPa)")
-    ax.set_title("Moist Static Energy Profiles", fontweight="bold")
+    ax.set_title("Moist Static Energy Profiles", fontweight="bold", fontsize=12)
+    ax.set_yticks(np.arange(100, 1001, 100))
     ax.legend(handles=[Line2D([0], [0], color="k", lw=2.5, label="Environmental MSE"),
                        Line2D([0], [0], color="k", lw=2.5, ls="--", label="Saturated Environmental MSE"),
                        Line2D([0], [0], color="k", lw=2, ls=":", label="Convective Parcel Path"),
@@ -66,7 +68,8 @@ def make(out_dir, years=None, weighted=True):
                        Line2D([0], [0], color=COLOR_HIGH, lw=2.5, label="High RH"),
                        Patch(fc=SHADE_L, alpha=0.15, label=r"$\delta_{a}/\epsilon$ (Low RH)"),
                        Patch(fc=SHADE_H, alpha=0.2, label=r"$\Delta\delta_{a}/\epsilon$ (High RH growth)")],
-              fontsize=6, loc="upper left", framealpha=0.9)
+              fontsize=5.5, loc="upper left", framealpha=0.9, edgecolor="#9CA3AF", handlelength=2.2,
+              borderpad=0.4, labelspacing=0.3)
     fig.tight_layout()
     facts = {"eps": f"{EPS} km⁻¹", "plume top low RH": f"{topL:.0f} hPa", "plume top high RH": f"{topH:.0f} hPa",
              "start": f"LPL of composite (low {lo['p_LPL']:.0f}, high {hi['p_LPL']:.0f} hPa)", "years": d.label()}

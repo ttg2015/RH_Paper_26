@@ -2,7 +2,8 @@
 
 Port of Paper_Plots-2 cells 135–137 (binned_combined.pdf), T and M unstable events pooled:
 (a) RH_2m × z_LCL,LPL density (z_LCL,2m for stage g files before 2026-11-02) with an RH count strip; (b) mean δ_FT, δ_below, δ_above vs z_LCL,LPL
-(100 m bins) with ±1 std (light) and ±1 standard error (dark) bands and a count strip; (c) the same
+(100 m bins) with the 25–75th percentile range shaded (from the lbh_* distributions; ±1 standard
+error for older stage g files) and a count strip; (c) the same
 vs RH_2m (1 % bins). Heights are above ground (E07 corrected). ε from config/figdata.yaml.
     python figures/fig_lcl_binned.py [--years 1980-2019]
 """
@@ -17,11 +18,12 @@ import style
 
 Z_COARSEN, RH_COARSEN = 4, 2         # 25 m → 100 m, 0.5 % → 1 %
 MIN_PER_BIN = 5
-COLORS = {"delta_FT": "black", "delta_below": "blue", "delta_above": "red"}
+COLORS = {"delta_FT": "#1F2937", "delta_below": "#2471A3", "delta_above": "#C0392B"}
 LABELS = {"delta_FT": r"$\delta_\mathrm{a}$", "delta_below": r"$\delta_\mathrm{below}$",
           "delta_above": r"$\delta_\mathrm{above}$"}
-LW, ALPHA_STD, ALPHA_STERR = 3.2, 0.12, 0.35
-SCATTER_CMAP = "Blues"
+LW, ALPHA_IQR, ALPHA_STERR = 2.4, 0.16, 0.35
+QUANTILES = (0.25, 0.75)
+STRIP = "#9CA3AF"
 
 
 def pooled(data, name):
@@ -42,26 +44,42 @@ def stats(lb, edges, factor):
     return FD.centers(e), mean, std, se, n[:, 0], e
 
 
+def quantile_band(lbh, edges, factor, d_edges, qs=QUANTILES):
+    """(bin, quantity, q) quantiles from per-bin counts over δ bins, coarsened like stats()."""
+    c, _ = FD.coarsen(lbh, edges, factor, axis=0)
+    cum = np.cumsum(c, axis=2)
+    out = np.full(c.shape[:2] + (len(qs),), np.nan)
+    for i in range(c.shape[0]):
+        for k in range(c.shape[1]):
+            tot = cum[i, k, -1]
+            if tot >= MIN_PER_BIN:
+                out[i, k] = np.interp(np.array(qs) * tot, cum[i, k], d_edges[1:])
+    return out
+
+
 def style_hist(ax):
     ax.tick_params(labelbottom=False, left=False, labelleft=False)
     ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.set_ylabel("N", fontsize=7, labelpad=2)
+    ax.set_ylabel("N", fontsize=7, labelpad=2, color=STRIP)
 
 
 def style_ax(ax):
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.axhline(0, color="0.5", lw=0.7, ls="--")
+    style.paper_axes(ax)
+    ax.axhline(0, color="0.45", lw=0.8, ls=(0, (4, 3)), zorder=1)
 
 
-def lines(ax, ax_h, x, mean, std, se, cnt, width, quantities, xlabel):
-    for k, q in enumerate(quantities):
-        ax.plot(x, mean[:, k], color=COLORS[q], lw=LW, label=LABELS[q])
-        ax.fill_between(x, mean[:, k] - std[:, k], mean[:, k] + std[:, k], color=COLORS[q], alpha=ALPHA_STD)
-        ax.fill_between(x, mean[:, k] - se[:, k], mean[:, k] + se[:, k], color=COLORS[q], alpha=ALPHA_STERR)
+def lines(ax, ax_h, x, mean, band, se, cnt, width, quantities, xlabel):
+    """Means with the 25–75th percentile band (band: (bin, quantity, 2)), or ±1 standard error if band is None."""
     style_ax(ax)
+    for k, q in enumerate(quantities):
+        if band is not None:
+            ax.fill_between(x, band[:, k, 0], band[:, k, 1], color=COLORS[q], alpha=ALPHA_IQR, lw=0)
+        else:
+            ax.fill_between(x, mean[:, k] - se[:, k], mean[:, k] + se[:, k], color=COLORS[q], alpha=ALPHA_STERR, lw=0)
+        ax.plot(x, mean[:, k], color=COLORS[q], lw=LW, label=LABELS[q], solid_capstyle="round")
     ax.set(xlabel=xlabel, ylabel="MSE anomaly (kJ kg$^{-1}$)")
-    ax.legend(loc="upper right")
-    ax_h.bar(x, cnt, width=width * 0.9, color="0.5", lw=0)
+    ax.legend(loc="upper right", frameon=False)
+    ax_h.bar(x, cnt, width=width * 0.9, color=STRIP, lw=0)
     style_hist(ax_h)
 
 
@@ -89,12 +107,13 @@ def make(out_dir, years=None, weighted=True):
     ex, ey = d0.edges_of(name, "x"), d0.edges_of(name, "y")
     h, ex = FD.coarsen(h, ex, 2, axis=0)
     h, ey = FD.coarsen(h, ey, 4, axis=1)
-    im = ax[0].pcolormesh(ex * 100, ey, h.T, cmap=SCATTER_CMAP, rasterized=True)
-    fig.colorbar(im, ax=ax[0], label="Count", pad=0.02, shrink=0.85)
+    style.paper_axes(ax[0], minor=False)
+    im = ax[0].pcolormesh(ex * 100, ey, h.T, cmap=style.DENSITY_CMAP, rasterized=True)
+    cb = fig.colorbar(im, ax=ax[0], label="Count", pad=0.02, shrink=0.85)
+    cb.outline.set_edgecolor(style.SPINE)
     ax[0].set(xlabel=r"RH$_{2\mathrm{m}}$ (%)", ylabel=r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)" if ml else r"$z_{\mathrm{LCL,2m}}$ (m)")
-    ax[0].spines[["top", "right"]].set_visible(False)
     nrh = h.sum(axis=1)
-    axh[0].bar(FD.centers(ex) * 100, nrh, width=np.diff(ex)[0] * 100 * 0.9, color="0.5", lw=0)
+    axh[0].bar(FD.centers(ex) * 100, nrh, width=np.diff(ex)[0] * 100 * 0.9, color=STRIP, lw=0)
     style_hist(axh[0])
     xr_a = trim(FD.centers(ex) * 100, nrh)
     zr = trim(FD.centers(ey), h.sum(axis=0))
@@ -102,26 +121,28 @@ def make(out_dir, years=None, weighted=True):
     axh[0].set_xlim(xr_a)
 
     # (b) vs z_LCL,LPL
+    has_q = all("lbh_zLCL_LPL" in d.hist and "lbh_RH_2m" in d.hist for d in data.values())
+    de = d0.edges["delta"]
     x, mean, std, se, cnt, e = stats(pooled(data, "lb_zLCL_LPL"), d0.edges["zlcl"], Z_COARSEN)
-    lines(ax[1], axh[1], x, mean, std, se, cnt, np.diff(e)[0], quantities, r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)")
+    band = quantile_band(pooled(data, "lbh_zLCL_LPL"), d0.edges["zlcl"], Z_COARSEN, de) if has_q else None
+    lines(ax[1], axh[1], x, mean, band, se, cnt, np.diff(e)[0], quantities, r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)")
     xr_b = trim(x, cnt)
     ax[1].set_xlim(xr_b); axh[1].set_xlim(xr_b)
 
     # (c) vs RH
     x, mean2, std2, se2, cnt2, e2 = stats(pooled(data, "lb_RH_2m"), d0.edges["rh"], RH_COARSEN)
-    lines(ax[2], axh[2], x * 100, mean2, std2, se2, cnt2, np.diff(e2)[0] * 100, quantities, r"RH$_{2\mathrm{m}}$ (%)")
+    band2 = quantile_band(pooled(data, "lbh_RH_2m"), d0.edges["rh"], RH_COARSEN, de) if has_q else None
+    lines(ax[2], axh[2], x * 100, mean2, band2, se2, cnt2, np.diff(e2)[0] * 100, quantities, r"RH$_{2\mathrm{m}}$ (%)")
     xr_c = trim(x * 100, cnt2)
     ax[2].set_xlim(xr_c); axh[2].set_xlim(xr_c)
 
-    for a, lbl in zip(ax, ["(a)", "(b)", "(c)"]):
-        a.text(0.02, 0.97, lbl, transform=a.transAxes, fontsize=10, fontweight="bold", va="top")
-    eps = FD.load("figdata")["convective"]["eps"]
-    fig.suptitle(f"T + M combined · unstable events · ε = {eps:g} km⁻¹ · {d0.label()} · "
-                 f"{style.band_text(FD.load('analysis'))}", fontsize=12, y=1.01)
+    for k, a in enumerate(ax):
+        style.panel_letter(a, k)
+    eps = FD.load("figdata")["convective"]["eps"]                 # years, band and ε are in the caption
     n = int(cnt.sum())
     facts = {"unstable events": f"{n:,}", "eps": f"{eps:g} km⁻¹", "years": d0.label(),
              "z_LCL": "above ground (E07 corrected); LPL parcel for (b) and " + ("(a)" if ml else "2 m parcel for (a): rerun stage g"),
-             "bands": "light = ±1 std, dark = ±1 standard error"}
+             "bands": "25–75th percentiles" if has_q else "±1 standard error (rerun stage g for percentile bands)"}
     return [{"path": FD.save(fig, out_dir, "lcl_binned"), "title": "LCL-Binned Decomposition",
              "facts": facts, "script": "figures/fig_lcl_binned.py"}]
 

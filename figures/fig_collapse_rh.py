@@ -9,6 +9,7 @@ the RH bins where both types have at least MIN_BOTH events.
 """
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.patheffects as pe_
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -17,9 +18,13 @@ import style
 
 COARSEN = 2                       # 0.5 % → 1 % RH
 MIN_N, MIN_BOTH = 20, 200
-PANELS = [("h2_rh_dFT", r"mean $\delta_{a}$ [kJ/kg]"), ("h2_rh_dS", r"mean $\delta_S$ [kJ/kg]"),
-          ("h2_rh_dtotal", r"mean $\delta$ [kJ/kg]"), ("lb:delta_below", r"mean $\delta_{below}$ [kJ/kg] (unstable)"),
-          ("lb:delta_above", r"mean $\delta_{above}$ [kJ/kg] (unstable)"), ("strike", "median plume top [hPa]")]
+LW, POOLED_LW = 3.0, 1.8
+POOLED_COLOR = "#1F2937"
+SHARED_COLOR = "#E8EDF3"                  # RH range where both event types have ≥ MIN_BOTH events
+HALO = [pe_.withStroke(linewidth=LW + 1.6, foreground="white")]
+PANELS = [("h2_rh_dFT", r"mean $\delta_{a}$ [kJ kg$^{-1}$]"), ("h2_rh_dS", r"mean $\delta_S$ [kJ kg$^{-1}$]"),
+          ("h2_rh_dtotal", r"mean $\delta$ [kJ kg$^{-1}$]"), ("lb:delta_below", r"mean $\delta_{\mathrm{below}}$ [kJ kg$^{-1}$]"),
+          ("lb:delta_above", r"mean $\delta_{\mathrm{above}}$ [kJ kg$^{-1}$]"), ("strike", "median plume top [hPa]")]
 
 
 def curve(d, key, weighted):
@@ -49,39 +54,43 @@ def make(out_dir, years=None, weighted=True):
     style.apply()
     data = {e: FD.FigData(e, years) for e in ("T", "M")}
     rh0, rh0_source = FD.rh_split_value(data, weighted)
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8.5))
+    fig, axes = plt.subplots(2, 3, figsize=(14, 8))
     facts = {"RH0": f"{rh0:.3f} ({rh0_source})"}
-    for ax, (key, ylabel) in zip(axes.ravel(), PANELS):
+    for i, (ax, (key, ylabel)) in enumerate(zip(axes.ravel(), PANELS)):
+        style.paper_axes(ax)
+        style.panel_letter(ax, i)
         curves = {e: curve(d, key, weighted) for e, d in data.items()}
         if any(c is None for c in curves.values()):
             ax.text(0.5, 0.5, "not in figure data yet", ha="center", transform=ax.transAxes)
             continue
         x = curves["T"][0]
         for e, (xx, m, n) in curves.items():
-            ax.plot(xx, np.where(n >= MIN_N, m, np.nan), color=style.EVENT_COLOR[e], lw=2,
-                    label=style.EVENT_LABEL[e])
+            ax.plot(xx, np.where(n >= MIN_N, m, np.nan), color=style.EVENT_COLOR[e], lw=LW, zorder=4,
+                    label=style.EVENT_LABEL[e], path_effects=HALO, solid_capstyle="round")
         nT, nM = curves["T"][2], curves["M"][2]
         mT, mM = curves["T"][1], curves["M"][1]
         with np.errstate(invalid="ignore", divide="ignore"):
             pooled = np.where(nT + nM >= MIN_N, (np.nan_to_num(mT) * nT + np.nan_to_num(mM) * nM) / (nT + nM), np.nan)
-        ax.plot(x, pooled, "k--", lw=1.4, label="pooled")
+        ax.plot(x, pooled, color=POOLED_COLOR, ls=(0, (4, 2.5)), lw=POOLED_LW, zorder=5, label="pooled")
         both = (nT >= MIN_BOTH) & (nM >= MIN_BOTH) & np.isfinite(mT) & np.isfinite(mM)
         if both.any():
             w = np.minimum(nT, nM)[both]
             gap = np.average(np.abs(mT - mM)[both], weights=w)
             spread = np.nanmax(pooled) - np.nanmin(pooled)
-            ax.axvspan(x[both].min(), x[both].max(), color="0.9", zorder=0)
+            ax.axvspan(x[both].min(), x[both].max(), color=SHARED_COLOR, zorder=0, lw=0)
             facts[f"{key.replace('lb:', '')}: mean |T − M| at fixed RH"] = (
                 f"{gap:.2f} (vs {spread:.2f} range of the pooled curve) over RH {x[both].min():.2f}–{x[both].max():.2f}")
-            ax.text(0.03, 0.04, f"|T−M| = {gap:.2f}", transform=ax.transAxes, fontsize=9)
+            ax.text(0.10, 0.975, f"|T−M| = {gap:.2f}", transform=ax.transAxes, fontsize=8.5, ha="left", va="top",
+                    color=POOLED_COLOR, zorder=10,
+                    bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="#CBD5E1", lw=0.8, alpha=0.9))
         if np.isfinite(rh0):
-            ax.axvline(rh0, color="k", lw=0.8, ls=":")
+            ax.axvline(rh0, color="#6B7280", lw=1.0, ls=":", zorder=3)
         if key == "strike":
             ax.set_ylim(1000, 100)
         ax.set(xlim=(0, 1), xlabel="RH$_{2m}$", ylabel=ylabel)
-    axes[0][0].legend(fontsize=8, frameon=False)
-    fig.suptitle(f"Collapse test: T vs h2m extremes at fixed RH · grey = RH range where both have ≥ {MIN_BOTH} "
-                 f"events · dotted = RH0 · {data['T'].label()}", fontsize=11)
+    h, l = axes[0][0].get_legend_handles_labels()
+    axes[1][2].legend(h, l, fontsize=9, frameon=False, loc="lower center")      # the plume-top panel is empty below 700 hPa
+    # shading, RH0 and years are explained in the caption
     fig.tight_layout()
     facts.update(years=data["T"].label(), weighting="cos(lat)" if weighted else "none",
                  reading="small |T − M| compared with the pooled range → RH controls it; large → event type matters")

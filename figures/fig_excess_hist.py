@@ -18,7 +18,7 @@ import style
 WEIGHTED = True                  # a 1D distribution over the globe: cos(lat) weights (E02)
 
 COARSEN = 1                      # native 0.25 kJ/kg bins
-HIST_RANGE = (-20, 30)
+HIST_RANGE = (-25, 45)         # wide enough for the WBT tail of δ_total
 QUANTITIES = [("delta_total", r"Total excess: $\mathbf{\delta}$"),
               ("delta_S", r"Surface-layer excess: $\mathbf{\delta_{S}}$"),
               ("delta_FT", r"Atmospheric excess: $\mathbf{\delta_{a}}$")]

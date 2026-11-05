@@ -280,6 +280,16 @@ def run(year, event, buffer):
         ds[f"lb_{coord}"].attrs.update(edges=f"edges_{bkey}", units="kJ kg-1", feeds=FEEDS["lb"],
                                        note="unstable events (delta_FT > 0); stats n, sum, sum of squares",
                                        eps_km=conv["eps"])
+        # full distributions per bin, for quantile bands (the ±1 std band crosses zero where the data do not)
+        hq = np.zeros((len(E[bkey]) - 1, len(qs), len(E["delta"]) - 1))
+        for k, q in enumerate(qs):
+            v = f[q][m][ok]
+            good = np.isfinite(v)
+            hq[:, k] = np.histogram2d(idx[ok][good], v[good], [np.arange(len(E[bkey])), E["delta"]])[0]
+        ds[f"lbh_{coord}"] = ((f"bin_{bkey}", "lb_quantity", "bin_delta"), hq)
+        ds[f"lbh_{coord}"].attrs.update(x_edges=f"edges_{bkey}", y_edges="edges_delta", units="count",
+                                        feeds=FEEDS["lb"], note="unstable events; counts of each quantity per bin",
+                                        eps_km=conv["eps"])
     ds = ds.assign_coords(lb_quantity=qs, lb_stat=["n", "sum", "sumsq"])
 
     # Maps: all cells (ocean too) where SP > map_sp_min_hPa; band and land drawn at plot time
