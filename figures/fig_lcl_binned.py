@@ -23,6 +23,7 @@ LABELS = {"delta_FT": r"$\delta_\mathrm{a}$", "delta_below": r"$\delta_\mathrm{b
           "delta_above": r"$\delta_\mathrm{above}$"}
 LW, ALPHA_IQR, ALPHA_STERR = 2.4, 0.16, 0.35
 QUANTILES = (0.25, 0.75)
+SHOW_ZLCL_PANEL = False              # the δ vs z_LCL panel; dropped for the advisor's storyline (new Fig 9)
 STRIP = "#9CA3AF"
 
 
@@ -94,10 +95,14 @@ def make(out_dir, years=None, weighted=True):
     data = {e: FD.FigData(e, years) for e in ("T", "M")}
     d0 = data["T"]
     quantities = ["delta_FT", "delta_below", "delta_above"]
-    fig = plt.figure(figsize=(14, 6))
-    gs = gridspec.GridSpec(2, 3, figure=fig, height_ratios=[0.18, 1], hspace=0.04, wspace=0.32)
-    axh = [fig.add_subplot(gs[0, k]) for k in range(3)]
-    ax = [fig.add_subplot(gs[1, k]) for k in range(3)]
+    ncol = 3 if SHOW_ZLCL_PANEL else 2
+    fig = plt.figure(figsize=(14 if SHOW_ZLCL_PANEL else 9.6, 6))
+    gs = gridspec.GridSpec(2, ncol, figure=fig, height_ratios=[0.18, 1], hspace=0.04, wspace=0.32)
+    axh = [fig.add_subplot(gs[0, k]) for k in range(ncol)]
+    ax = [fig.add_subplot(gs[1, k]) for k in range(ncol)]
+    if not SHOW_ZLCL_PANEL:                                       # (b) is computed but not drawn
+        axh.insert(1, None)
+        ax.insert(1, None)
 
     # (a) RH × z_LCL density of unstable events: mixed-layer (LPL) air, as in (b); older stage g
     # files only have the 2 m parcel
@@ -125,9 +130,10 @@ def make(out_dir, years=None, weighted=True):
     de = d0.edges["delta"]
     x, mean, std, se, cnt, e = stats(pooled(data, "lb_zLCL_LPL"), d0.edges["zlcl"], Z_COARSEN)
     band = quantile_band(pooled(data, "lbh_zLCL_LPL"), d0.edges["zlcl"], Z_COARSEN, de) if has_q else None
-    lines(ax[1], axh[1], x, mean, band, se, cnt, np.diff(e)[0], quantities, r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)")
-    xr_b = trim(x, cnt)
-    ax[1].set_xlim(xr_b); axh[1].set_xlim(xr_b)
+    if SHOW_ZLCL_PANEL:
+        lines(ax[1], axh[1], x, mean, band, se, cnt, np.diff(e)[0], quantities, r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)")
+        xr_b = trim(x, cnt)
+        ax[1].set_xlim(xr_b); axh[1].set_xlim(xr_b)
 
     # (c) vs RH
     x, mean2, std2, se2, cnt2, e2 = stats(pooled(data, "lb_RH_2m"), d0.edges["rh"], RH_COARSEN)
@@ -136,7 +142,7 @@ def make(out_dir, years=None, weighted=True):
     xr_c = trim(x * 100, cnt2)
     ax[2].set_xlim(xr_c); axh[2].set_xlim(xr_c)
 
-    for k, a in enumerate(ax):
+    for k, a in enumerate(a for a in ax if a is not None):
         style.panel_letter(a, k)
     eps = FD.load("figdata")["convective"]["eps"]                 # years, band and ε are in the caption
     n = int(cnt.sum())

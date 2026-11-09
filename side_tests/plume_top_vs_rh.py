@@ -29,6 +29,7 @@ import style                                                  # noqa: E402
 from tpl_mll import ztop                                      # noqa: E402
 
 # (h*500 range, h500 range) in kJ/kg, on the cascade_composites grid
+# shading in the height row is the entrainment depth, LCL to top
 REGIMES = {
     "middle latitudes": ((327.0, 330.0), (320.0, 323.0)),
     "tropics, drier FT": ((336.0, 339.0), (326.0, 329.0)),
@@ -90,6 +91,19 @@ def plume_tops(c, eps=EPS, min_n=MIN_N):
     return out
 
 
+def heights(c, tops):
+    """Top heights (km above the bin's mean surface) for each ε, from the composite geopotential."""
+    lev = np.asarray(c["levels"], float)
+    out = {}
+    for e, p in tops.items():
+        z = np.full(len(p), np.nan)
+        for i in range(len(p)):
+            if np.isfinite(p[i]) and p[i] > ztop.P_TOP:
+                z[i] = T.interp_p(lev, c["Z"][i], p[i]) / T.G_KM - c["zs_km"][i]
+        out[e] = z
+    return out
+
+
 def slope(x, y, n, window=WINDOW, min_n=MIN_N):
     """Event-weighted slope dy/dx over the RH window (NaN with fewer than 3 usable bins)."""
     ok = np.isfinite(y) & (n >= min_n) & (x >= window[0]) & (x <= window[1])
@@ -101,16 +115,25 @@ def slope(x, y, n, window=WINDOW, min_n=MIN_N):
 def report(name, c, tops, L):
     x = c["rh_centers"]
     ok = c["n"] >= MIN_N
-    L += [f"### {name}", "", "| RH | n | δ_a | p_LCL | " + " | ".join(f"top ε={e:g}" for e in EPS) + " |",
-          "|---" * (4 + len(EPS)) + "|"]
+    zt = heights(c, tops)
+    z_lcl = c["zLCL_LPL"] / 1000.0
+    L += [f"### {name}", "", "| RH | n | δ_a | p_LCL | z_LCL km | " + " | ".join(f"top ε={e:g}" for e in EPS)
+          + " | " + " | ".join(f"z_top ε={e:g} km" for e in EPS[1:]) + " |",
+          "|---" * (5 + len(EPS) + len(EPS) - 1) + "|"]
+    fz = lambda z: "–" if not np.isfinite(z) else f"{z:.2f}"
     fmt = lambda p: "diluted" if not np.isfinite(p) else (">100" if p <= ztop.P_TOP else f"{p:.0f}")
     for i in np.nonzero(ok)[0]:
         L.append(f"| {x[i]:.3f} | {int(c['n'][i]):,} | {c['delta_a'][i]:+.1f} | {c['p_LCL_LPL'][i]:.0f} | "
-                 + " | ".join(fmt(tops[e][i]) for e in EPS) + " |")
+                 f"{z_lcl[i]:.2f} | " + " | ".join(fmt(tops[e][i]) for e in EPS) + " | "
+                 + " | ".join(fz(zt[e][i]) for e in EPS[1:]) + " |")
     sl = {e: slope(x, np.where(tops[e] > ztop.P_TOP, tops[e], np.nan), c["n"]) for e in EPS[1:]}
     L += ["", f"Over RH {WINDOW[0]:.2f}–{WINDOW[1]:.2f}: d(top)/d(RH) = "
           + ", ".join(f"{sl[e]:+.0f} hPa per unit RH at ε = {e:g}" for e in sl)
-          + " (negative = top rises as RH rises).", ""]
+          + " (negative = top rises as RH rises).",
+          "In height: d(z_top)/d(RH) = " + ", ".join(f"{slope(x, zt[e], c['n']):+.2f} km" for e in EPS[1:])
+          + f" per unit RH; d(z_LCL)/d(RH) = {slope(x, z_lcl, c['n']):+.2f} km; entrainment depth z_top − z_LCL: "
+          + ", ".join(f"{slope(x, zt[e] - z_lcl, c['n']):+.2f} km" for e in EPS[1:]) + " per unit RH (ε = "
+          + ", ".join(f"{e:g}" for e in EPS[1:]) + ").", ""]
     return sl
 
 
@@ -119,8 +142,9 @@ def figure(results, path):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     style.apply()
-    fig, axes = plt.subplots(1, len(results), figsize=(3.3 * len(results), 3.6), sharey=True)
-    for k, (ax, (name, (c, tops))) in enumerate(zip(np.atleast_1d(axes), results.items())):
+    fig, grid = plt.subplots(2, len(results), figsize=(3.3 * len(results), 6.8), sharey="row", squeeze=False)
+    axes = grid[0]
+    for k, (ax, (name, (c, tops))) in enumerate(zip(axes, results.items())):
         style.paper_axes(ax)
         ax.axhspan(600, 400, color=style.WINDOW_COLOR, alpha=0.08, lw=0)
         ok = c["n"] >= MIN_N
@@ -132,8 +156,22 @@ def figure(results, path):
         ax.axvspan(*WINDOW, color="0.85", alpha=0.35, lw=0, zorder=0)
         ax.set(xlim=(0, 1), ylim=(1000, 150), xlabel="surface RH", title=name)
         style.panel_letter(ax, k)
-    np.atleast_1d(axes)[0].set_ylabel("plume top of the composite (hPa)")
-    np.atleast_1d(axes)[0].legend(fontsize=7, loc="lower left", frameon=False)
+    axes[0].set_ylabel("plume top of the composite (hPa)")
+    axes[0].legend(fontsize=7, loc="lower left", frameon=False)
+    for k, (ax, (name, (c, tops))) in enumerate(zip(grid[1], results.items())):  # the same in height
+        style.paper_axes(ax)
+        ok = c["n"] >= MIN_N
+        x = c["rh_centers"]
+        zt = heights(c, tops)
+        z_lcl = np.where(ok, c["zLCL_LPL"] / 1000.0, np.nan)
+        for e in EPS[1:]:
+            ax.plot(x, np.where(ok, zt[e], np.nan), "-o", color=style.EPS_COLOR[e], ms=3.5, lw=1.8)
+            ax.fill_between(x, z_lcl, np.where(ok, zt[e], np.nan), color=style.EPS_COLOR[e], alpha=0.10, lw=0)
+        ax.plot(x, z_lcl, color="#6B7280", lw=1.2, ls=(0, (1, 2)))
+        ax.axvspan(*WINDOW, color="0.85", alpha=0.35, lw=0, zorder=0)
+        ax.set(xlim=(0, 1), ylim=(0, None), xlabel="surface RH")
+        style.panel_letter(ax, k + len(results))
+    grid[1][0].set_ylabel("height above ground (km)")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
