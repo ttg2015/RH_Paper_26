@@ -41,7 +41,10 @@ WEIGHTED = False
 MIN_COUNT = 500
 SAT_BELOW = 600.0                                             # h* drawn at and above this level
 COVERAGE_MIN, COVERAGE_FAINT = 0.9, 0.5
-CMAP = plt.cm.YlGnBu
+# RH colors: YlGnBu without its palest end, so the driest bins stay visible on the pale background
+CMAP = plt.matplotlib.colors.LinearSegmentedColormap.from_list("rh", plt.cm.YlGnBu(np.linspace(0.3, 1.0, 256)))
+PLANE_CMAP = "Greys"                                          # neutral, so the colored regime boxes stand out
+PLANE_KEEP = 0.002                                            # crop (a) to cells above this share of the peak
 REGIME_COLOR = ["#7C3AED", "#D97706", "#0F766E"]              # box outlines in (a), and panel titles
 PLANE = (312.0, 348.0), (305.0, 341.0)
 X_FROM_HPA = 200.0                                            # x-limits from levels at or below this (the casc
@@ -58,6 +61,14 @@ def plane_counts(arrays):
             for j in range(nj):
                 out[i, j] += a["n"][names.index(f"g{i:02d}_{j:02d}")].sum()
     return out
+
+
+def plane_limits(cnt, ex, ey, keep=PLANE_KEEP, pad=1.5):
+    """Axis limits of (a): the cells holding events (above `keep` of the peak) and the regime boxes."""
+    i, j = np.nonzero(cnt > keep * np.nanmax(cnt))
+    xs = [ex[i.min()], ex[i.max() + 1]] + [v for hs, _ in REGIMES.values() for v in hs]
+    ys = [ey[j.min()], ey[j.max() + 1]] + [v for _, h in REGIMES.values() for v in h]
+    return (min(xs) - pad, max(xs) + pad), (min(ys) - pad, max(ys) + pad)
 
 
 def coverage(arrays, names):
@@ -93,15 +104,15 @@ def draw(arrays, out_dir, label="", plane=None):
         cnt, ex, ey = plane
     else:
         cnt, ex, ey = plane_counts(arrays), CC.GRID_HS, CC.GRID_H
-    ax.pcolormesh(ex, ey, np.ma.masked_equal(cnt.T, 0), cmap=style.DENSITY_CMAP, shading="flat", rasterized=True)
-    lo = max(PLANE[0][0], PLANE[1][0])
-    hi = min(PLANE[0][1], PLANE[1][1])
+    ax.pcolormesh(ex, ey, np.ma.masked_equal(cnt.T, 0), cmap=PLANE_CMAP, shading="flat", rasterized=True,
+                  vmin=0, vmax=np.nanmax(cnt) * 1.05)
+    xl, yl = plane_limits(cnt, ex, ey)
+    lo, hi = min(xl[0], yl[0]), max(xl[1], yl[1])
     ax.plot((lo, hi), (lo, hi), color="k", lw=0.8, alpha=0.5)
     for k, (name, (hs, h)) in enumerate(REGIMES.items()):
         ax.add_patch(Rectangle((hs[0], h[0]), hs[1] - hs[0], h[1] - h[0], fill=False, lw=2.2, ec=REGIME_COLOR[k]))
         ax.text(hs[1] + 0.4, h[1] + 0.3, "bcd"[k], color=REGIME_COLOR[k], fontweight="bold", fontsize=10)
-    ax.set(xlim=PLANE[0], ylim=PLANE[1], xlabel=r"$h^*_{500}$ (kJ kg$^{-1}$)", ylabel=r"$h_{500}$ (kJ kg$^{-1}$)",
-           aspect="equal")
+    ax.set(xlim=xl, ylim=yl, xlabel=r"$h^*_{500}$ (kJ kg$^{-1}$)", ylabel=r"$h_{500}$ (kJ kg$^{-1}$)")
     ax.set_title("Events, T + wet-bulb", fontsize=11)
     style.panel_letter(ax, 0)
 
