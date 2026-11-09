@@ -18,11 +18,12 @@ DELTA_SHORT = {"delta_FT": r"$\delta_{a}$", "delta_S": r"$\delta_S$", "delta_tot
 SUBBAND_LABEL = {"all": "", "TP": "tropics", "ST": "subtropics", "ML": "midlatitudes"}
 PANEL_BG = "white"                                          # mostly white panels, no grid
 SPINE = "#444444"
-BAND_COLOR, BAND_ALPHA = "#D8C9A3", 0.35                    # the 400–600 hPa band: pale sand tint
-WINDOW_COLOR = "#8C7346"                                    # darker sand for band edges and labels
+BAND_COLOR, BAND_ALPHA = "#9CA3AF", 0.18                    # the 400–600 hPa band: light cool gray (sand matched
+WINDOW_COLOR = "#6B7280"                                    # the driest RH profiles); darker gray for edges/labels
 # Entrainment rates shown in the plume figures (case study, pooled tops, schematic): light → dark
 EPS_SHOWN = (0.2, 0.3, 0.4)                                 # km⁻¹
-EPS_COLOR = {0.0: "#9CA3AF", 0.2: "#E0A040", 0.3: "#3A8FB7", 0.4: "#5B2A86"}   # ochre / blue-green / plum
+EPS_COLOR = {0.0: "#9CA3AF", 0.1: "#8CB369", 0.2: "#E0A040", 0.3: "#3A8FB7", 0.4: "#5B2A86"}
+# 0.1 sage (pooled tops only), 0.2 ochre, 0.3 blue-green, 0.4 plum; colorblind-checked against each other and the brackets
 BRACKET_COLOR = {"weak": "#A8A29E", "strong": "#57534E"}    # ε outside the plausible family, dashed
 BRACKET_LS = (0, (5, 2))
 DIVERGING_CMAP = "coolwarm"                                 # maps of δ_a and δ_S

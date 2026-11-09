@@ -18,7 +18,7 @@ import style
 
 Z_COARSEN, RH_COARSEN = 4, 2         # 25 m → 100 m, 0.5 % → 1 %
 MIN_PER_BIN = 5
-COLORS = {"delta_FT": "#1F2937", "delta_below": "#0A9396", "delta_above": "#8C7346"}   # not the event colors
+COLORS = {"delta_FT": "#1F2937", "delta_below": "#8C7346", "delta_above": "#0A9396"}   # δ_above the bright one
 LABELS = {"delta_FT": r"$\delta_\mathrm{a}$", "delta_below": r"$\delta_\mathrm{below}$",
           "delta_above": r"$\delta_\mathrm{above}$"}
 LW, ALPHA_IQR, ALPHA_STERR = 2.4, 0.16, 0.35

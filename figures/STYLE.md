@@ -11,9 +11,11 @@ sheets that led to them are in `draft-merged/storyline/style_options/`, includin
 | 2D event densities (Figs 5, 9, 11a, 12) | Purples | matplotlib `Purples`, zeros masked |
 | Profiles binned by surface RH (Figs 10, 11) | sand → teal | `#E9D8A6`, `#94D2BD`, `#0A9396`, `#005F73` (linear) |
 | Entrainment rates ε = 0.2 / 0.3 / 0.4 | ochre / blue-green / plum, light → dark | `#E0A040`, `#3A8FB7`, `#5B2A86` |
+| ε = 0.1 (pooled tops, Fig 7 only) | sage | `#8CB369` |
+| Low / high RH pair (schematic, RH demo) | dark sand / dark teal | `#A07C45`, `#005F73` |
 | Undilute plume (ε = 0) | gray, dotted | `#9CA3AF` |
 | Bracketing ε (too weak / too strong) | light / dark gray, dashed | `#A8A29E`, `#57534E` |
-| 400–600 hPa band | pale sand tint | `#D8C9A3`, low alpha (about 0.25) |
+| 400–600 hPa band | light cool gray (sand matched the driest RH profiles) | `#9CA3AF` at alpha 0.18; edges and labels `#6B7280` |
 | Diverging maps (Fig 4) | coolwarm | matplotlib `coolwarm`, symmetric limits |
 | Regime boxes (Fig 11) | violet / orange / teal | `#7C3AED`, `#D97706`, `#0F766E` |
 

@@ -1,7 +1,7 @@
 """Plume tops, pooled (paper figure): where entraining plumes top out, T and wet-bulb extremes together.
 
 From stage f's plume tops summed in stage g (strike_ptop, strike_category), pooled over years and over
-both event types. One curve per ε in style.EPS_SHOWN, colored as in the plume case study
+both event types. One curve per ε in SHOWN (0.1 plus style.EPS_SHOWN), colored as in the plume case study
 (fig_plume_case.py). Each curve is the share of unstable events (buoyant at ε = 0) whose plume tops out
 in each 10 hPa bin, so its area is the share that tops out anywhere; the rest are diluted out. The legend
 gives the share topping in the 400–600 hPa window and the share diluted out. With --brackets, the
@@ -24,6 +24,7 @@ import style
 
 REPO = Path(__file__).resolve().parents[1]
 WEIGHTED = False
+SHOWN = (0.1,) + tuple(style.EPS_SHOWN)              # ε drawn in color: the case-study three plus 0.1
 P_COARSEN = 2                                        # 5 → 10 hPa
 DILUTED, PASS = 5, 1                                 # stage f category codes
 BRACKET_STYLE = {r: dict(color=c, ls=style.BRACKET_LS) for r, c in style.BRACKET_COLOR.items()}
@@ -50,7 +51,7 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
     """eps (E,), h (E, P) top counts, cat (E, codes) category counts, pe (P+1,) pressure edges.
     shown: ε to draw in color (default style.EPS_SHOWN); brackets: (weak, strong) ε in gray, or None."""
     style.apply()
-    shown = tuple(style.EPS_SHOWN if shown is None else shown)
+    shown = tuple(SHOWN if shown is None else shown)
     lo, hi = window
     total, stable, share = FD.unstable_counts(cat)
     pc = FD.centers(pe)

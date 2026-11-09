@@ -1,9 +1,10 @@
 """Plume Schematic (paper figure): composite low- and high-RH profiles with their entraining plumes.
 
-Port of Paper_Plots-2 cells 73–76 (meeting.pdf). Composites are the RH-demo bins of the T_TPL box.
+Port of Paper_Plots-2 cells 73–76 (meeting.pdf). Composites of the T_TPL box at two RH bins set apart
+(RH_LOW, RH_HIGH below) so the mixed-layer change is visible; the RH demo keeps its adjacent bins.
 Each plume starts at the composite's LPL with its mean h_LPL (old version: fixed 1000 hPa) and is
 drawn up to where it meets h* (old version: hand-tuned cutoffs 555 / 500 hPa). Shading: green =
-δ_FT/ε region of the low-RH plume; orange = growth of that region at high RH.
+δ_FT/ε region of the low-RH plume (gray); growth of that region at high RH (teal).
     python figures/fig_plume_schematic.py [--years 1980-2019]
 """
 import matplotlib
@@ -15,12 +16,14 @@ from matplotlib.patches import Patch
 
 import figdata as FD
 import style
-from fig_rh_demo import CASE, RH_LOW, RH_HIGH
+from fig_rh_demo import CASE
 from tpl_mll import ztop
 
 EPS = 0.1                      # as in the old schematic
-COLOR_LOW, COLOR_HIGH = style.RH_CMAP(0.25), style.RH_CMAP(0.95)     # low / high RH, from the RH colormap
-SHADE_L, SHADE_H = "0.6", style.BAND_COLOR
+RH_LOW, RH_HIGH = (0.25, 0.30), (0.50, 0.55)                 # far enough apart to see the ML top move
+COLOR_LOW, COLOR_HIGH = "#A07C45", "#005F73"                 # dry sand / moist teal: the ends of style.RH_CMAP, darkened
+SHADE_L, SHADE_H = "0.55", "#0A9396"                         # δ_a/ε at low RH (gray); its growth at high RH (teal)
+MIN_N = 300                                                  # events per composite
 ANNOTATE = True                # the advisor's pathways: (i) lower ML top, (ii) top, (iii) ML–FT contrast
 ML_DROP = 1.0                  # kJ/kg below h_ML that marks the mixed-layer top (the kink)
 CONTRAST_P = 650.0             # hPa, level of the (iii) arrow
@@ -54,7 +57,7 @@ def ml_top(levels, c, drop=ML_DROP):
     return float(np.exp(np.log(p[k - 1]) + f * (np.log(p[k]) - np.log(p[k - 1]))))
 
 
-def annotate(ax, levels, lo, hi, topL, topH, cL, cH, pg):
+def annotate(ax, levels, lo, hi, topL, topH, cL, cH, eH, pg):
     """Arrows for the RH pathways on the low- and high-RH composites."""
     ann = dict(fontsize=7, fontweight="bold", color="#111827")
     arrow = dict(arrowstyle="<->", color="#111827", lw=1.0, shrinkA=0, shrinkB=0)
@@ -65,10 +68,12 @@ def annotate(ax, levels, lo, hi, topL, topH, cL, cH, pg):
             ax.plot([x_r - 0.6, x_r + 0.6], [p_, p_], color=col, lw=1.6)
         ax.annotate("", xy=(x_r, mlH), xytext=(x_r, mlL), arrowprops=arrow, zorder=7)
         ax.text(x_r + 0.5, np.sqrt(mlL * mlH), "(i) ML top\nlowers", va="center", ha="left", **ann)
-    e_hi = np.interp(np.log(CONTRAST_P), np.log(levels), hi["MSE"])  # (iii) ML–FT contrast widens
-    if np.isfinite(e_hi):
-        ax.annotate("", xy=(hi["h_LPL"], CONTRAST_P), xytext=(e_hi, CONTRAST_P), arrowprops=arrow, zorder=7)
-        ax.text(0.5 * (e_hi + hi["h_LPL"]), CONTRAST_P - 12, "(iii) ML–FT contrast", ha="center", va="bottom", **ann)
+    # (iii) the contrast: the gap between the high-RH environment and its plume, h_c − h_e
+    at_p = lambda v: np.interp(np.log(CONTRAST_P), np.log(pg[::-1]), v[::-1])
+    e_hi, c_hi = at_p(eH), at_p(cH)
+    if np.isfinite(e_hi) and np.isfinite(c_hi):
+        ax.annotate("", xy=(c_hi, CONTRAST_P), xytext=(e_hi, CONTRAST_P), arrowprops=arrow, zorder=7)
+        ax.text(0.5 * (e_hi + c_hi), CONTRAST_P - 12, "(iii) contrast", ha="center", va="bottom", **ann)
     xs = []
     for top, c_, col in ((topL, cL, COLOR_LOW), (topH, cH, COLOR_HIGH)):   # (ii) the tops
         if np.isfinite(top):
@@ -85,8 +90,8 @@ def make(out_dir, years=None, weighted=True):
     d = FD.FigData("T", years)
     lo, hi = FD.composite(d, CASE, *RH_LOW), FD.composite(d, CASE, *RH_HIGH)
     for c, rng in ((lo, RH_LOW), (hi, RH_HIGH)):
-        if not c["n"]:
-            raise ValueError(f"no {CASE} events with RH {rng[0]:.2f}–{rng[1]:.2f} in these years")
+        if c["n"] < MIN_N:
+            raise ValueError(f"only {int(c['n'])} {CASE} events with RH {rng[0]:.2f}–{rng[1]:.2f}; move RH_LOW/RH_HIGH")
     pL, hpL, envL, topL = plume_on(d.levels, lo)
     pH, hpH, envH, topH = plume_on(d.levels, hi)
     fig, ax = plt.subplots(figsize=(3.6, 3.9))                        # compact, as the Paper_Plots-2 original
@@ -97,9 +102,9 @@ def make(out_dir, years=None, weighted=True):
     cL, eL, cH, eH = at(pL, hpL), at(pL, envL), at(pH, hpH), at(pH, envH)
     below_L = pg >= (topL if np.isfinite(topL) else 1e9)
     below_H = pg >= (topH if np.isfinite(topH) else 1e9)
-    ax.fill_betweenx(pg, cL, eL, where=below_L & (cL > eL), color=SHADE_L, alpha=0.15, lw=0)
+    ax.fill_betweenx(pg, cL, eL, where=below_L & (cL > eL), color=SHADE_L, alpha=0.18, lw=0)
     left = np.where(below_L, np.maximum(eH, cL), eH)
-    ax.fill_betweenx(pg, left, cH, where=below_H & (cH > left), color=SHADE_H, alpha=0.20, lw=0)
+    ax.fill_betweenx(pg, left, cH, where=below_H & (cH > left), color=SHADE_H, alpha=0.22, lw=0)
     for c, col in ((lo, COLOR_LOW), (hi, COLOR_HIGH)):
         ax.plot(c["MSE"], d.levels, color=col, lw=2.5)
         ax.plot(np.where(d.levels <= 600, c["MSE_sat"], np.nan), d.levels, color=col, lw=2.5, ls="--")
@@ -107,18 +112,19 @@ def make(out_dir, years=None, weighted=True):
     ax.plot(np.where(below_H, cH, np.nan), pg, color=COLOR_HIGH, lw=2, ls=":")
     mlL = mlH = np.nan
     if ANNOTATE:
-        mlL, mlH = annotate(ax, d.levels, lo, hi, topL, topH, cL, cH, pg)
+        mlL, mlH = annotate(ax, d.levels, lo, hi, topL, topH, cL, cH, eH, pg)
     x_hi = max(345.0, max(lo["h_LPL"], hi["h_LPL"]) + 6.5) if ANNOTATE else 345.0   # room for the (i) label
     ax.set(ylim=(1000, 100), xlim=(320, x_hi), xlabel="MSE " + style.KJ,
            ylabel="Pressure [hPa]")
     ax.set_yticks(np.arange(100, 1001, 100))
-    ax.legend(handles=[Line2D([0], [0], color="k", lw=2.5, label="Environmental MSE"),
-                       Line2D([0], [0], color="k", lw=2.5, ls="--", label="Saturated Environmental MSE"),
-                       Line2D([0], [0], color="k", lw=2, ls=":", label="Convective Parcel Path"),
-                       Line2D([0], [0], color=COLOR_LOW, lw=2.5, label="Low RH"),
-                       Line2D([0], [0], color=COLOR_HIGH, lw=2.5, label="High RH"),
-                       Patch(fc=SHADE_L, alpha=0.15, label=r"$\delta_{a}/\epsilon$ (Low RH)"),
-                       Patch(fc=SHADE_H, alpha=0.2, label=r"$\Delta\delta_{a}/\epsilon$ (High RH growth)")],
+    pct = lambda r: f"{100 * r[0]:.0f}–{100 * r[1]:.0f}%"
+    ax.legend(handles=[Line2D([0], [0], color="k", lw=2.5, label="environment $h$"),
+                       Line2D([0], [0], color="k", lw=2.5, ls="--", label="saturated $h^*$"),
+                       Line2D([0], [0], color="k", lw=2, ls=":", label=f"plume, $\\varepsilon$ = {EPS:g} km$^{{-1}}$"),
+                       Line2D([0], [0], color=COLOR_LOW, lw=2.5, label=f"RH {pct(RH_LOW)}"),
+                       Line2D([0], [0], color=COLOR_HIGH, lw=2.5, label=f"RH {pct(RH_HIGH)}"),
+                       Patch(fc=SHADE_L, alpha=0.18, label=r"$\delta_{a}/\varepsilon$, drier"),
+                       Patch(fc=SHADE_H, alpha=0.22, label=r"growth at higher RH")],
               fontsize=5.5, loc="upper left", framealpha=0.9, edgecolor="#9CA3AF", handlelength=2.2,
               borderpad=0.4, labelspacing=0.3)
     fig.tight_layout()
