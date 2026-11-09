@@ -3,7 +3,7 @@
 From stage f's plume tops summed in stage g (strike_ptop, strike_category), pooled over years and over
 both event types. One curve per ε in SHOWN (0.1 plus style.EPS_SHOWN), colored as in the plume case study
 (fig_plume_case.py). Each curve is the share of unstable events (buoyant at ε = 0) whose plume tops out
-in each 10 hPa bin, so its area is the share that tops out anywhere; the rest are diluted out. The legend
+in each 20 hPa bin, so its area is the share that tops out anywhere; the rest are diluted out. The legend
 gives the share topping in the 400–600 hPa window and the share diluted out. With --brackets, the
 smallest and largest ε of the sweep are added as dashed gray curves, as in the case study.
 
@@ -25,7 +25,7 @@ import style
 REPO = Path(__file__).resolve().parents[1]
 WEIGHTED = False
 SHOWN = (0.1,) + tuple(style.EPS_SHOWN)              # ε drawn in color: the case-study three plus 0.1
-P_COARSEN = 2                                        # 5 → 10 hPa
+P_COARSEN = 4                                        # 5 → 20 hPa (10 hPa curves were jagged)
 DILUTED, PASS = 5, 1                                 # stage f category codes
 BRACKET_STYLE = {r: dict(color=c, ls=style.BRACKET_LS) for r, c in style.BRACKET_COLOR.items()}
 
@@ -91,7 +91,7 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
                               label=f"$\\varepsilon = {e:g}$: {in_win:.0f}% in band, {dil:.0f}% diluted out"))
         facts[f"ε={e:g}"] = (f"median top {med:.0f} hPa; {in_win:.0f}% of unstable events top in {lo:g}–{hi:g} hPa; "
                              f"{dil:.0f}% diluted out")
-    ax.set(ylim=(1000, 100), xlim=(0, 1.08 * xmax), xlabel="unstable events per 10 hPa [%]",
+    ax.set(ylim=(1000, 100), xlim=(0, 1.08 * xmax), xlabel=f"unstable events per {5 * P_COARSEN} hPa [%]",
            ylabel="plume top [hPa]")
     ax.set_yticks(np.arange(100, 1001, 100))
     ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=1,

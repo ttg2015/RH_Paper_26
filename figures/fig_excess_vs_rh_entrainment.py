@@ -16,7 +16,7 @@ import figdata as FD
 import style
 from fig_excess_vs_rh import (XRANGE, YRANGE, EVENT_LINE, draw_plane, mean_curve, plane)
 
-C_KM = 2.0                       # constant C in dz_LCL/dRH ≈ −C/RH
+C_KM = 1.8                       # constant C in dz_LCL/dRH ≈ −C/RH (ERA5 LCL fit, as in the paper)
 WINDOW = (0.30, 0.60)            # RH fit window (E11: still to be chosen; drawn as used)
 
 

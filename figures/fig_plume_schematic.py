@@ -93,14 +93,22 @@ def source_name():
     return f"regime '{REGIME}' (T + WBT)" if SOURCE == "regime" else f"box {CASE}"
 
 
-def dump(path, levels, comps, label):
+def dump(path, levels, comps, label, plane=None):
     out = {"levels": levels, "label": np.array(label), "source": np.array(source_name()),
            "bins": np.array(list(comps))}
+    if plane is not None:                                     # the (h*500, h500) event plane, for the RH demo
+        out["plane_cnt"], out["plane_ex"], out["plane_ey"] = plane
     for k, (b, c) in enumerate(comps.items()):
         for v in ("MSE", "MSE_sat", "Z", "h_LPL", "p_LPL", "n", "p_LCL"):
             if v in c:
                 out[f"{k}_{v}"] = np.asarray(c[v], float)
     np.savez_compressed(path, **out)
+
+
+def plane_from_cache(path):
+    """(counts, x edges, y edges) of the event plane stored with the cache, or None."""
+    z = np.load(path)
+    return (z["plane_cnt"], z["plane_ex"], z["plane_ey"]) if "plane_cnt" in z else None
 
 
 def from_cache(path):
@@ -231,12 +239,16 @@ def annotate(ax, levels, lo, hi, topL, topH, cL, cH, eH, pg):
     return mlL, mlH
 
 
+def pair(levels, comps):
+    """The two RH bins drawn (shared with the RH demo, Fig. 10): (low, high, candidate table)."""
+    if RH_LOW and RH_HIGH:
+        return tuple(RH_LOW), tuple(RH_HIGH), ["set by hand"]
+    return choose_bins(levels, comps)
+
+
 def draw(levels, comps, label, out_dir, src=""):
     style.apply()
-    if RH_LOW and RH_HIGH:
-        rh_low, rh_high, scan = tuple(RH_LOW), tuple(RH_HIGH), ["set by hand"]
-    else:
-        rh_low, rh_high, scan = choose_bins(levels, comps)
+    rh_low, rh_high, scan = pair(levels, comps)
     lo, hi = comps[rh_low], comps[rh_high]
     for c, rng in ((lo, rh_low), (hi, rh_high)):
         if c["n"] < MIN_N:
@@ -299,7 +311,13 @@ def make(out_dir, years=None, weighted=True, cache=None, dump_to=None, casc=None
     else:
         (levels, comps, label), src = from_figdata(years), source_name()
     if dump_to:
-        dump(dump_to, levels, comps, label)
+        plane = None
+        try:                                                  # fine event plane from figdata, for Fig. 10
+            from fig_cascade_regimes import fine_plane
+            plane = fine_plane(years)
+        except Exception as err:                              # noqa: BLE001
+            print(f"note: no event plane stored ({err})")
+        dump(dump_to, levels, comps, label, plane)
     return [draw(levels, comps, label, out_dir, src)]
 
 
