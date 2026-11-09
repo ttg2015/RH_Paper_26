@@ -11,6 +11,9 @@ SUBBAND_LABEL = {"all": "", "TP": "tropics", "ST": "subtropics", "ML": "midlatit
 PANEL_BG = "#F8F9FA"                                        # pale axes background, as in Paper_Plots-2
 SPINE = "#444444"
 WINDOW_COLOR = "#0F766E"                                    # the 400–600 hPa pass band
+# Entrainment rates shown in the plume figures (case study, pooled tops, schematic): light → dark
+EPS_SHOWN = (0.2, 0.3, 0.4)                                 # km⁻¹
+EPS_COLOR = {0.0: "#9CA3AF", 0.2: "#E8A33D", 0.3: "#B5527A", 0.4: "#4B2C83"}
 # densities: from the panel background through peach, coral and magenta to deep indigo, so empty
 # bins blend into the background instead of showing as white gaps
 DENSITY_COLORS = ["#F8F9FA", "#FDE7C4", "#FCB57A", "#F0705B", "#C83A6E", "#7A1F7E", "#2D0B59"]
