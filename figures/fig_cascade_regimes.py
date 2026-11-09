@@ -5,9 +5,12 @@ in each: middle latitudes, tropics with a drier free troposphere, tropics with a
 are the 3 kJ/kg grid cells of side_tests/cascade_composites.py set in side_tests/plume_top_vs_rh.REGIMES,
 so this figure and the plume-top check use the same events.
 
-(a) where the pooled events sit in the (h*500, h500) plane, with the regimes outlined: the 0.5 kJ/kg
-    figdata histogram h2_hs500_h500 (T + M, unweighted, all terrain), or the 3 kJ/kg composite grid if no
-    figdata files are found.
+(a) where the pooled events sit in the (h*500, h500) plane, with the regimes outlined: the 0.2 kJ/kg
+    figdata histogram h2_hs500_h500_fine if it exists, else the 0.5 kJ/kg h2_hs500_h500 (T + M, unweighted,
+    all terrain), else the 3 kJ/kg composite grid. Equal aspect, so the boxes stay square.
+    To make the fine one: in config/figdata.yaml add the bins `energy_fine: [295.0, 355.0, 0.2]` and the hist2d
+    `h2_hs500_h500_fine: [h_star500, energy_fine, h500, energy_fine]`, add "h2_hs500_h500_fine" to FEEDS in
+    pipeline/g.py, and rerun stage g (both files are in its fingerprint, so any edit marks it stale).
 (b–d) one cascade per regime: h solid, h* dashed (at and above 600 hPa), one color per 5 % RH bin, and a
 dot at each bin's mean LCL so the mixed layer can be seen to shallow. Levels are solid where at least
 COVERAGE_MIN of the bin's events have them above ground and faded down to COVERAGE_FAINT, as in
@@ -85,8 +88,8 @@ def fine_plane(years):
         data = [FD.FigData(e, years) for e in ("T", "M")]
     except FileNotFoundError:
         return None
-    name = "h2_hs500_h500"
-    if not all(name in d.hist for d in data):
+    name = next((n for n in ("h2_hs500_h500_fine", "h2_hs500_h500") if all(n in d.hist for d in data)), None)
+    if name is None:
         return None
     h = sum(d.h(name, weighted=False) for d in data)
     return FD.crop(h, data[0].edges_of(name, "x"), data[0].edges_of(name, "y"), *PLANE)
@@ -96,8 +99,8 @@ def draw(arrays, out_dir, label="", plane=None):
     style.apply()
     edges = arrays[0]["rh_edges"]
     norm = BoundaryNorm(edges, CMAP.N)
-    fig = plt.figure(figsize=(15.5, 5.0))
-    gs = fig.add_gridspec(1, 5, width_ratios=[0.82, 0.16, 1, 1, 1], wspace=0.08)   # column 1 is a spacer
+    fig = plt.figure(figsize=(17.0, 5.0))
+    gs = fig.add_gridspec(1, 5, width_ratios=[1.3, 0.16, 1, 1, 1], wspace=0.08)    # column 1 is a spacer
 
     ax = style.paper_axes(fig.add_subplot(gs[0, 0]))            # (a) selection plane
     if plane is not None:
@@ -112,7 +115,8 @@ def draw(arrays, out_dir, label="", plane=None):
     for k, (name, (hs, h)) in enumerate(REGIMES.items()):
         ax.add_patch(Rectangle((hs[0], h[0]), hs[1] - hs[0], h[1] - h[0], fill=False, lw=2.2, ec=REGIME_COLOR[k]))
         ax.text(hs[1] + 0.4, h[1] + 0.3, "bcd"[k], color=REGIME_COLOR[k], fontweight="bold", fontsize=10)
-    ax.set(xlim=xl, ylim=yl, xlabel=r"$h^*_{500}$ (kJ kg$^{-1}$)", ylabel=r"$h_{500}$ (kJ kg$^{-1}$)")
+    ax.set(xlim=xl, ylim=yl, xlabel=r"$h^*_{500}$ (kJ kg$^{-1}$)", ylabel=r"$h_{500}$ (kJ kg$^{-1}$)",
+           aspect="equal")
     ax.set_title("Events, T + wet-bulb", fontsize=11)
     style.panel_letter(ax, 0)
 
