@@ -21,7 +21,7 @@ SIGMA = (4, 3)                  # smoothing in native bins (0.5 % RH, 0.25 kJ/kg
 CONTOURF_LEVELS = 20
 WHITE_LEVELS, WHITE_MIN_PCT = 4, 10
 PCT = (0.50, 0.75)
-EVENT_LINE = {"T": "darkred", "M": "darkblue"}
+EVENT_LINE = dict(style.EVENT_COLOR)                 # brick / navy
 MEAN_COARSEN = 2                # mean line on 1 % RH bins
 MIN_EVENTS = 20
 
@@ -47,7 +47,7 @@ def draw_plane(ax, ex, ey, H, labels=True):
     hp, cx, cy = FD.crop(pooled, ex, ey, XRANGE, YRANGE)
     xc, yc = FD.centers(cx), FD.centers(cy)
     hs = FD.smooth(hp, SIGMA).T
-    cf = ax.contourf(xc, yc, hs / hs.sum(), levels=CONTOURF_LEVELS, cmap="Purples")
+    cf = ax.contourf(xc, yc, 100 * hs / hs.sum(), levels=CONTOURF_LEVELS, cmap=style.DENSITY_CMAP)
     nz = hs[hs > 0]
     lv = np.linspace(np.percentile(nz, WHITE_MIN_PCT), hs.max(), WHITE_LEVELS + 1)
     ax.contour(xc, yc, hs, levels=lv, colors="white", linewidths=1.5, alpha=0.8)
@@ -77,33 +77,32 @@ def make(out_dir, years=None, weighted=True):
     rh0 = FD.rh0(data)                                 # unweighted, same number every figure uses
     if np.isfinite(rh0):
         ax.plot(rh0, 0, "o", ms=7, mfc="white", mec="k", zorder=6)
-        ax.annotate(f"RH$_0$ = {rh0:.3f}", (rh0, 0), xytext=(8, -16), textcoords="offset points", fontsize=7)
+        ax.annotate(f"RH$_0$ = {100 * rh0:.1f}%", (rh0, 0), xytext=(8, -16), textcoords="offset points", fontsize=7)
     ax.axhline(0, color="k", lw=1.5, ls=":")
     ax.text(0.25, 13.0, "Unstable", fontsize=11, va="center")
     ax.text(0.42, -10.0, "Stable", fontsize=11, va="center")
 
     # count strip: T, M and their combined counts (E09: counts are added, not the RH values)
     for e, color, lab in (("T", EVENT_LINE["T"], None), ("M", EVENT_LINE["M"], None),
-                          ("TM", "purple", "T + M")):
+                          ("TM", "0.35", "both")):
         h = H["T"] + H["M"] if e == "TM" else H[e]
         hx, exx = FD.coarsen(h, ex, MEAN_COARSEN, axis=0)
         n = hx.sum(axis=1)
-        axc.step(FD.centers(exx), n, where="mid", color=color, lw=1.5)
-    axc.set_ylabel("events" + (" (cos-wt)" if weighted else ""), fontsize=7)
+        axc.step(FD.centers(exx), n / 1000.0, where="mid", color=color, lw=1.2)
+    axc.set_ylabel(r"events [$10^3$]", fontsize=7)
     axc.tick_params(labelbottom=False, labelsize=7)
     axc.set_ylim(bottom=0)
-    axc.set_title(fr"$\delta_{{a}}$ vs RH · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}",
-                  fontsize=7)
 
     fig.canvas.draw()
     pos = ax.get_position()
     cb = fig.colorbar(cf, cax=fig.add_axes([pos.x1 + 0.01, pos.y0, 0.02, pos.height]))
-    cb.set_label("share of events")
-    ax.legend(handles=[mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=r"$T_{2m}$ max"),
-                       mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=r"$h_{2m}$ max"),
+    cb.set_label("events per bin [%]")
+    ax.legend(handles=[mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=style.EVENT_SHORT["T"]),
+                       mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=style.EVENT_SHORT["M"]),
                        mlines.Line2D([], [], color="gray", lw=1.5, marker=".", ms=6,
                                      label=r"Mean $\delta_{a}$")], loc="upper left", fontsize=6)
-    ax.set(xlim=XRANGE, ylim=YRANGE, xlabel="RH", ylabel=r"$\delta_{a}$ [kJ/kg]")
+    ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ " + style.KJ)
+    style.rh_percent(ax)
     facts = {"RH0 (pooled mean crosses 0)": f"{rh0:.3f}", "years": d0.label(),
              "weighting": "cos(lat)" if weighted else "none",
              "bins": "0.5 % RH × 0.25 kJ/kg, smoothed σ = 2 % RH × 0.75 kJ/kg",

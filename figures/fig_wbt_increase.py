@@ -13,6 +13,7 @@ from matplotlib.lines import Line2D
 from scipy.optimize import brentq
 
 import figdata as FD
+import style
 
 CP, LV, EPS = 1005.7, 2.501e6, 0.622
 P_HPA = 1000.0
@@ -41,6 +42,7 @@ def make(out_dir, years=None, weighted=True):
         if dh:
             for j, T in enumerate(Tw_C + 273.15):
                 Z[i, j] = dTw_from_excess(T, P_HPA, dh)
+    style.apply()
     fig, ax = plt.subplots(figsize=(3.7, 3.0))  # one journal column (19pc)
     ax.tick_params(labelsize=8)
     cf = ax.contourf(Tw_C, dH, Z, levels=np.linspace(0.0, Z.max(), 40), cmap="magma")
@@ -49,13 +51,12 @@ def make(out_dir, years=None, weighted=True):
     cs2 = ax.contour(Tw_C, dH, Tw_C[None, :] + Z, levels=np.arange(20.0, 51.0, 5.0), colors="#34d8d8",
                      linewidths=1.0, linestyles="--")
     ax.clabel(cs2, inline=True, fontsize=6, fmt="%.0f°C")
-    ax.legend(handles=[Line2D([0], [0], color="white", lw=0.9, label="Increase ΔTw [K]"),
-                       Line2D([0], [0], color="#34d8d8", lw=1.0, ls="--", label="Resulting Tw [°C]")],
-              loc="lower right", fontsize=6, framealpha=0.3)
-    fig.colorbar(cf, ax=ax, ticks=np.arange(0.0, Z.max() + 0.5, 2.0)).set_label(r"Wet-bulb increase $\Delta T_w$ [K]")
-    ax.set(xlabel="Wet-bulb temperature [°C]", ylabel="Excess MSE, dH [kJ/kg]",
-           title="Wet-bulb amplification of excess energy")
-    ax.title.set_fontsize(9)
+    ax.legend(handles=[Line2D([0], [0], color="0.55", lw=0.9, label="increase ΔTw [K]"),
+                       Line2D([0], [0], color="#34d8d8", lw=1.0, ls="--", label="resulting WBT [°C]")],
+              loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2, fontsize=6.5, frameon=False,
+              facecolor="0.3")
+    fig.colorbar(cf, ax=ax, ticks=np.arange(0.0, Z.max() + 0.5, 2.0)).set_label(r"WBT increase $\Delta T_w$ [K]")
+    ax.set(xlabel="reference WBT [°C]", ylabel=r"excess $\delta$ [kJ/kg]")
     fig.tight_layout()
     k = np.argmin(abs(Tw_C - 30)), np.argmin(abs(dH - 10))
     return [{"path": FD.save(fig, out_dir, "wbt_increase"), "title": "WBT Increase from Excess",

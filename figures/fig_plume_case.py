@@ -32,7 +32,7 @@ PICK = dict(radius_deg=6.0, p_top_range=(250.0, 800.0))
 # (too deep) and the smallest strong ε that stalls below 600 hPa (too shallow or diluted out).
 WEAK_CANDIDATES = (0.15, 0.1, 0.07, 0.05, 0.03, 0.02)
 STRONG_CANDIDATES = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.9, 1.0, 1.2, 1.5, 2.0)
-BRACKET_STYLE = {"weak": dict(color="#A8A29E", ls=(0, (5, 2))), "strong": dict(color="#57534E", ls=(0, (5, 2)))}
+BRACKET_STYLE = {r: dict(color=c, ls=style.BRACKET_LS) for r, c in style.BRACKET_COLOR.items()}
 
 
 def _open(year, event, buffer=6):
@@ -132,7 +132,7 @@ def draw(one, out_dir, label, weak=None, strong=None):
 
     fig, ax = plt.subplots(figsize=(3.8, 5.0))
     style.paper_axes(ax)
-    ax.axhspan(600, 400, color=style.WINDOW_COLOR, alpha=0.08, lw=0, zorder=0)
+    style.band(ax, label="400–600 hPa")
     ax.plot(h_env, p, color="k", lw=2.0, zorder=3)
     ax.plot(h_sat, p, color="k", lw=1.6, ls="--", zorder=3)
     facts = {"event": label, "h_ML": f"{h0:.1f} kJ/kg at {p0:.0f} hPa",
@@ -178,13 +178,11 @@ def draw(one, out_dir, label, weak=None, strong=None):
     ax.axhline(p_lcl, color="#6B7280", lw=0.8, ls=(0, (1, 2)), zorder=1)
     ax.text(0.98, p_lcl, "LCL", transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=7,
             color="#4B5563")
-    ax.text(0.98, 425, "400–600 hPa", transform=ax.get_yaxis_transform(), ha="right", va="center",
-            fontsize=7, color=style.WINDOW_COLOR)
     upper = p >= 150
     lo_x = np.nanmin(h_env[upper]) - 2
     hi_x = max(h0, hs500) + 6
-    ax.set(xlim=(lo_x, hi_x), ylim=(p0 + 15, 150), xlabel=r"MSE (kJ kg$^{-1}$)",
-           ylabel="Pressure (hPa)")
+    ax.set(xlim=(lo_x, hi_x), ylim=(p0 + 15, 150), xlabel="MSE " + style.KJ,
+           ylabel="Pressure [hPa]")
     ax.set_yticks(np.arange(200, 1001, 100))
     ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2,
               frameon=False, handlelength=2.0, columnspacing=1.0, labelspacing=0.35)

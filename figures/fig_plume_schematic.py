@@ -19,8 +19,8 @@ from fig_rh_demo import CASE, RH_LOW, RH_HIGH
 from tpl_mll import ztop
 
 EPS = 0.1                      # as in the old schematic
-COLOR_LOW, COLOR_HIGH = "firebrick", "purple"
-SHADE_L, SHADE_H = "green", "#e67e22"
+COLOR_LOW, COLOR_HIGH = style.RH_CMAP(0.25), style.RH_CMAP(0.95)     # low / high RH, from the RH colormap
+SHADE_L, SHADE_H = "0.6", style.BAND_COLOR
 ANNOTATE = True                # the advisor's pathways: (i) lower ML top, (ii) top, (iii) ML–FT contrast
 ML_DROP = 1.0                  # kJ/kg below h_ML that marks the mixed-layer top (the kink)
 CONTRAST_P = 650.0             # hPa, level of the (iii) arrow
@@ -109,9 +109,8 @@ def make(out_dir, years=None, weighted=True):
     if ANNOTATE:
         mlL, mlH = annotate(ax, d.levels, lo, hi, topL, topH, cL, cH, pg)
     x_hi = max(345.0, max(lo["h_LPL"], hi["h_LPL"]) + 6.5) if ANNOTATE else 345.0   # room for the (i) label
-    ax.set(ylim=(1000, 100), xlim=(320, x_hi), xlabel=r"MSE (kJ kg$^{-1}$)",
-           ylabel="Pressure (hPa)")
-    ax.set_title("Moist Static Energy Profiles", fontweight="bold", fontsize=12)
+    ax.set(ylim=(1000, 100), xlim=(320, x_hi), xlabel="MSE " + style.KJ,
+           ylabel="Pressure [hPa]")
     ax.set_yticks(np.arange(100, 1001, 100))
     ax.legend(handles=[Line2D([0], [0], color="k", lw=2.5, label="Environmental MSE"),
                        Line2D([0], [0], color="k", lw=2.5, ls="--", label="Saturated Environmental MSE"),

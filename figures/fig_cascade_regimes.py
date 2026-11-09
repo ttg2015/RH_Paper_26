@@ -45,10 +45,10 @@ MIN_COUNT = 500
 SAT_BELOW = 600.0                                             # h* drawn at and above this level
 COVERAGE_MIN, COVERAGE_FAINT = 0.9, 0.5
 # RH colors: YlGnBu without its palest end, so the driest bins stay visible on the pale background
-CMAP = plt.matplotlib.colors.LinearSegmentedColormap.from_list("rh", plt.cm.YlGnBu(np.linspace(0.3, 1.0, 256)))
-PLANE_CMAP = "Greys"                                          # neutral, so the colored regime boxes stand out
+CMAP = style.RH_CMAP
+PLANE_CMAP = "Greys"            # neutral, so the colored regime boxes stand out (purples would hide the violet box)
 PLANE_KEEP = 0.002                                            # crop (a) to cells above this share of the peak
-REGIME_COLOR = ["#7C3AED", "#D97706", "#0F766E"]              # box outlines in (a), and panel titles
+REGIME_COLOR = style.REGIME_COLOR                             # box outlines in (a), and panel titles
 PLANE = (312.0, 348.0), (305.0, 341.0)
 X_FROM_HPA = 200.0                                            # x-limits from levels at or below this (the casc
                                                               # levels reach 1 hPa, where MSE is far larger)
@@ -115,9 +115,9 @@ def draw(arrays, out_dir, label="", plane=None):
     for k, (name, (hs, h)) in enumerate(REGIMES.items()):
         ax.add_patch(Rectangle((hs[0], h[0]), hs[1] - hs[0], h[1] - h[0], fill=False, lw=2.2, ec=REGIME_COLOR[k]))
         ax.text(hs[1] + 0.4, h[1] + 0.3, "bcd"[k], color=REGIME_COLOR[k], fontweight="bold", fontsize=10)
-    ax.set(xlim=xl, ylim=yl, xlabel=r"$h^*_{500}$ (kJ kg$^{-1}$)", ylabel=r"$h_{500}$ (kJ kg$^{-1}$)",
+    ax.set(xlim=xl, ylim=yl, xlabel=r"$h^*_{500}$ " + style.KJ, ylabel=r"$h_{500}$ " + style.KJ,
            aspect="equal")
-    ax.set_title("Events, T + wet-bulb", fontsize=11)
+    ax.set_title("events", fontsize=10)
     style.panel_letter(ax, 0)
 
     facts, axes = {}, []
@@ -128,7 +128,7 @@ def draw(arrays, out_dir, label="", plane=None):
         c = pooled(arrays, names)
         cov = coverage(arrays, names)
         lev = np.asarray(c["levels"], float)
-        ax.axhspan(600, 400, color=style.WINDOW_COLOR, alpha=0.07, lw=0, zorder=0)
+        style.band(ax)
         xs, kept = [], 0
         for b in range(len(c["n"])):
             if c["n"][b] < MIN_COUNT:
@@ -153,9 +153,9 @@ def draw(arrays, out_dir, label="", plane=None):
             kept += c["n"][b]
         if xs:
             ax.set_xlim(np.nanmin(xs) - 2, np.nanmax(xs) + 2)
-        ax.set(ylim=(1000, 150), xlabel=r"MSE (kJ kg$^{-1}$)")
+        ax.set(ylim=(1000, 150), xlabel="MSE " + style.KJ)
         ax.set_yticks(np.arange(200, 1001, 100))
-        ax.set_title(f"{name}", fontsize=11, color=REGIME_COLOR[k])
+        ax.set_title(f"{name}", fontsize=10, color=REGIME_COLOR[k])
         ax.text(0.03, 0.91, f"n = {int(kept):,}", transform=ax.transAxes, ha="left", va="top",
                 color="#444", fontstyle="italic", fontsize=8)
         style.panel_letter(ax, k + 1)
@@ -164,10 +164,11 @@ def draw(arrays, out_dir, label="", plane=None):
         facts[name] = (f"h*500 {hs[0]:g}–{hs[1]:g}, h500 {h[0]:g}–{h[1]:g}; {int(kept):,} events in bins with "
                        f"≥ {MIN_COUNT}; LCL {np.nanmax(np.where(c['n'] >= MIN_COUNT, c['p_LCL_LPL'], np.nan)):.0f}"
                        f" → {np.nanmin(np.where(c['n'] >= MIN_COUNT, c['p_LCL_LPL'], np.nan)):.0f} hPa across bins")
-    axes[0].set_ylabel("Pressure (hPa)")
+    axes[0].set_ylabel("Pressure [hPa]")
     sm = plt.cm.ScalarMappable(cmap=CMAP, norm=norm)
     cb = fig.colorbar(sm, ax=axes, pad=0.012, fraction=0.025, ticks=edges[::2])
-    cb.set_label("surface RH (5 % bins)")
+    cb.set_label(style.RH_LABEL + ", 5 % bins")
+    cb.ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{100 * v:.0f}"))
     cb.outline.set_edgecolor(style.SPINE)
     axes[-1].legend(handles=[Line2D([0], [0], color="k", lw=1.8, label="$h$"),
                              Line2D([0], [0], color="k", lw=1.6, ls="--", label=f"$h^*$ (≤ {SAT_BELOW:g} hPa)"),

@@ -19,10 +19,10 @@ WEIGHTED = True                  # a 1D distribution over the globe: cos(lat) we
 
 COARSEN = 1                      # native 0.25 kJ/kg bins
 HIST_RANGE = (-25, 45)         # wide enough for the WBT tail of δ_total
-QUANTITIES = [("delta_total", r"Total excess: $\mathbf{\delta}$"),
-              ("delta_S", r"Surface-layer excess: $\mathbf{\delta_{S}}$"),
-              ("delta_FT", r"Atmospheric excess: $\mathbf{\delta_{a}}$")]
-TEMP_COLOR, MSE_COLOR = "#C0392B", "#2471A3"
+QUANTITIES = [("delta_total", r"total excess $\delta$"),
+              ("delta_S", r"surface-layer excess $\delta_{S}$"),
+              ("delta_FT", r"atmospheric excess $\delta_{a}$")]
+TEMP_COLOR, MSE_COLOR = style.EVENT_COLOR["T"], style.EVENT_COLOR["M"]
 LW, MEAN_LW, ZERO_LW = 2.5, 1.8, 1.5
 TXT, TITLE, LABEL, TICK = 13, 15, 13, 11
 # the paper figure is drawn at one journal column (19pc); the shared constants above stay for fig_excess_hist_rh
@@ -38,7 +38,7 @@ def hist(d, q, weighted):
 
 
 def panel(ax, q, title, data, weighted, show_x):
-    ax.set_facecolor("#F8F9FA")
+    ax.set_facecolor(style.PANEL_BG)
     for s in ("bottom", "left"):
         ax.spines[s].set_linewidth(COL["SPINE"])
         ax.spines[s].set_color("#444444")
@@ -51,17 +51,17 @@ def panel(ax, q, title, data, weighted, show_x):
         ax.plot(x, c, c=color, lw=COL["LW"], zorder=3)
         ax.axvline(mean, c=color, alpha=0.85, ls="--", lw=COL["MEAN_LW"], zorder=4)
         means[e] = mean
-    ax.text(0.04, 0.95, r"$\overline{\delta_{T_{\max}}}$" + f" = {means['T']:.2f} kJ kg$^{{-1}}$",
-            color=TEMP_COLOR, transform=ax.transAxes, ha="left", va="top", fontsize=COL["TXT"], fontweight="bold")
-    ax.text(0.04, 0.78, r"$\overline{\delta_{WBT_{\max}}}$" + f" = {means['M']:.2f} kJ kg$^{{-1}}$",
-            color=MSE_COLOR, transform=ax.transAxes, ha="left", va="top", fontsize=COL["TXT"], fontweight="bold")
+    ax.text(0.98, 0.95, f"mean {means['T']:.1f}", color=TEMP_COLOR, transform=ax.transAxes, ha="right",
+            va="top", fontsize=COL["TXT"])
+    ax.text(0.98, 0.80, f"mean {means['M']:.1f}", color=MSE_COLOR, transform=ax.transAxes, ha="right",
+            va="top", fontsize=COL["TXT"])
     ax.set_xlim(HIST_RANGE)
     ax.set_ylim(bottom=0)
     ax.tick_params(labelsize=COL["TICK"], length=2.5, width=0.7, pad=2)
-    ax.set_title(title, fontsize=COL["TITLE"], fontweight="bold", pad=3)
+    ax.set_title(title, fontsize=COL["TITLE"], pad=3)
     ax.set_ylabel(r"Events [$10^3$]", fontsize=COL["LABEL"])           # weighting stated in the caption
     if show_x:
-        ax.set_xlabel(r"$\delta$ [kJ kg$^{-1}$]", fontsize=COL["LABEL"])
+        ax.set_xlabel("excess " + style.KJ, fontsize=COL["LABEL"])
     return means
 
 
@@ -70,12 +70,12 @@ def figure(data, weighted):
     fig, axes = plt.subplots(3, 1, figsize=(3.7, 5.6), facecolor="white")
     means = {}
     for k, (ax, (q, title)) in enumerate(zip(axes, QUANTITIES)):
-        means[q] = panel(ax, q, f"({'abc'[k]}) {title}", data, weighted, k == 2)   # band and years go in the caption
-    fig.legend(handles=[Line2D([0], [0], color=TEMP_COLOR, lw=COL["LW"], label=r"Temperature $\delta$"),
-                        Line2D([0], [0], color=MSE_COLOR, lw=COL["LW"], label=r"WBT $\delta$"),
-                        Line2D([0], [0], color=TEMP_COLOR, lw=COL["MEAN_LW"], ls="--", alpha=0.85, label="Temperature mean"),
-                        Line2D([0], [0], color=MSE_COLOR, lw=COL["MEAN_LW"], ls="--", alpha=0.85, label="WBT mean")],
-               loc="lower center", ncol=2, frameon=False, fontsize=6.5, bbox_to_anchor=(0.5, 0.0),
+        means[q] = panel(ax, q, title, data, weighted, k == 2)   # band and years go in the caption
+        style.panel_letter(ax, k, x=0.015, y=0.97)
+    fig.legend(handles=[Line2D([0], [0], color=TEMP_COLOR, lw=COL["LW"], label=style.EVENT_LABEL["T"]),
+                        Line2D([0], [0], color=MSE_COLOR, lw=COL["LW"], label=style.EVENT_LABEL["M"]),
+                        Line2D([0], [0], color="0.3", lw=COL["MEAN_LW"], ls="--", label="mean [kJ/kg]")],
+               loc="lower center", ncol=3, frameon=False, fontsize=6.5, bbox_to_anchor=(0.5, 0.0),
                handlelength=2.0, columnspacing=1.2)
     fig.tight_layout(rect=[0, 0.07, 1, 1], h_pad=0.6)
     return fig, means

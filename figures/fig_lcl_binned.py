@@ -18,7 +18,7 @@ import style
 
 Z_COARSEN, RH_COARSEN = 4, 2         # 25 m → 100 m, 0.5 % → 1 %
 MIN_PER_BIN = 5
-COLORS = {"delta_FT": "#1F2937", "delta_below": "#2471A3", "delta_above": "#C0392B"}
+COLORS = {"delta_FT": "#1F2937", "delta_below": "#0A9396", "delta_above": "#8C7346"}   # not the event colors
 LABELS = {"delta_FT": r"$\delta_\mathrm{a}$", "delta_below": r"$\delta_\mathrm{below}$",
           "delta_above": r"$\delta_\mathrm{above}$"}
 LW, ALPHA_IQR, ALPHA_STERR = 2.4, 0.16, 0.35
@@ -78,7 +78,7 @@ def lines(ax, ax_h, x, mean, band, se, cnt, width, quantities, xlabel):
         else:
             ax.fill_between(x, mean[:, k] - se[:, k], mean[:, k] + se[:, k], color=COLORS[q], alpha=ALPHA_STERR, lw=0)
         ax.plot(x, mean[:, k], color=COLORS[q], lw=LW, label=LABELS[q], solid_capstyle="round")
-    ax.set(xlabel=xlabel, ylabel="MSE anomaly (kJ kg$^{-1}$)")
+    ax.set(xlabel=xlabel, ylabel="excess " + style.KJ)
     ax.legend(loc="upper right", frameon=False)
     ax_h.bar(x, cnt, width=width * 0.9, color=STRIP, lw=0)
     style_hist(ax_h)
@@ -114,9 +114,9 @@ def make(out_dir, years=None, weighted=True):
     h, ey = FD.coarsen(h, ey, 4, axis=1)
     style.paper_axes(ax[0], minor=False)
     im = ax[0].pcolormesh(ex * 100, ey, h.T, cmap=style.DENSITY_CMAP, rasterized=True)
-    cb = fig.colorbar(im, ax=ax[0], label="Count", pad=0.02, shrink=0.85)
+    cb = fig.colorbar(im, ax=ax[0], label="events", pad=0.02, shrink=0.85)
     cb.outline.set_edgecolor(style.SPINE)
-    ax[0].set(xlabel=r"RH$_{2\mathrm{m}}$ (%)", ylabel=r"$z_{\mathrm{LCL}}$ of mixed-layer air (m)" if ml else r"$z_{\mathrm{LCL,2m}}$ (m)")
+    ax[0].set(xlabel=style.RH_LABEL, ylabel="LCL of mixed-layer air [m]" if ml else "LCL of 2-m air [m]")
     nrh = h.sum(axis=1)
     axh[0].bar(FD.centers(ex) * 100, nrh, width=np.diff(ex)[0] * 100 * 0.9, color=STRIP, lw=0)
     style_hist(axh[0])
@@ -138,7 +138,7 @@ def make(out_dir, years=None, weighted=True):
     # (c) vs RH
     x, mean2, std2, se2, cnt2, e2 = stats(pooled(data, "lb_RH_2m"), d0.edges["rh"], RH_COARSEN)
     band2 = quantile_band(pooled(data, "lbh_RH_2m"), d0.edges["rh"], RH_COARSEN, de) if has_q else None
-    lines(ax[2], axh[2], x * 100, mean2, band2, se2, cnt2, np.diff(e2)[0] * 100, quantities, r"RH$_{2\mathrm{m}}$ (%)")
+    lines(ax[2], axh[2], x * 100, mean2, band2, se2, cnt2, np.diff(e2)[0] * 100, quantities, style.RH_LABEL)
     xr_c = trim(x * 100, cnt2)
     ax[2].set_xlim(xr_c); axh[2].set_xlim(xr_c)
 

@@ -26,7 +26,7 @@ REPO = Path(__file__).resolve().parents[1]
 WEIGHTED = False
 P_COARSEN = 2                                        # 5 → 10 hPa
 DILUTED, PASS = 5, 1                                 # stage f category codes
-BRACKET_STYLE = {"weak": dict(color="#A8A29E", ls=(0, (5, 2))), "strong": dict(color="#57534E", ls=(0, (5, 2)))}
+BRACKET_STYLE = {r: dict(color=c, ls=style.BRACKET_LS) for r, c in style.BRACKET_COLOR.items()}
 
 
 def quantile_p(h, pc, q):
@@ -61,11 +61,7 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
 
     fig, ax = plt.subplots(figsize=(3.8, 4.6))
     style.paper_axes(ax)
-    ax.axhspan(hi, lo, color=style.WINDOW_COLOR, alpha=0.08, lw=0, zorder=0)
-    for p in (lo, hi):
-        ax.axhline(p, color=style.WINDOW_COLOR, lw=1.0, ls=(0, (5, 3)), zorder=1)
-    ax.text(0.98, 0.5 * (lo + hi), f"{lo:g}–{hi:g} hPa", transform=ax.get_yaxis_transform(), ha="right",
-            va="center", fontsize=7, color=style.WINDOW_COLOR)
+    style.band(ax, lo, hi, edges=True, label=f"{lo:g}–{hi:g} hPa")
 
     handles, facts, xmax = [], {}, 0.0
     curves = [(e, None) for e in shown]
@@ -94,8 +90,8 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
                               label=f"$\\varepsilon = {e:g}$: {in_win:.0f}% in band, {dil:.0f}% diluted out"))
         facts[f"ε={e:g}"] = (f"median top {med:.0f} hPa; {in_win:.0f}% of unstable events top in {lo:g}–{hi:g} hPa; "
                              f"{dil:.0f}% diluted out")
-    ax.set(ylim=(1000, 100), xlim=(0, 1.08 * xmax), xlabel="% of unstable events per 10 hPa",
-           ylabel="Plume top (hPa)")
+    ax.set(ylim=(1000, 100), xlim=(0, 1.08 * xmax), xlabel="unstable events per 10 hPa [%]",
+           ylabel="plume top [hPa]")
     ax.set_yticks(np.arange(100, 1001, 100))
     ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=1,
               frameon=False, handlelength=2.2, labelspacing=0.35)

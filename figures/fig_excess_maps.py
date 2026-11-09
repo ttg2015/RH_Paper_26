@@ -14,8 +14,8 @@ import figdata as FD
 import maps
 import style
 
-ROWS = [("delta_FT", r"$\mathbf{\delta}_{\mathbf{a}}$"), ("delta_S", r"$\mathbf{\delta_S}$")]
-COLS = [("M", r"$\mathbf{h_{2m}}$"), ("T", r"$\mathbf{T_{2m}}$")]
+ROWS = [("delta_FT", r"$\delta_{a}$"), ("delta_S", r"$\delta_S$")]
+COLS = [("T", style.EVENT_SHORT["T"]), ("M", style.EVENT_SHORT["M"])]   # temperature first, as elsewhere
 LIM = 30
 
 
@@ -23,20 +23,20 @@ def make(out_dir, years=None, weighted=True):
     style.apply()
     data = {e: FD.FigData(e, years) for e in ("T", "M")}
     band = FD.load("analysis")["lat_band"]
-    fig, axes = maps.grid(2, 2, (22, 11))
+    fig, axes = maps.grid(2, 2, (13, 6.6))
     facts = {}
     for i, (q, qlab) in enumerate(ROWS):
         for j, (e, elab) in enumerate(COLS):
             d = data[e]
             m = d.map_mean(q, masked=False)
             im = maps.draw(axes[i][j], d.lon, d.lat, m, band=band, labels=(j == 0),
-                           cmap="RdBu_r", vmin=-LIM, vmax=LIM)
-            axes[i][j].set_title(f"{qlab} during {elab} extremes", fontsize=20, fontweight="bold", pad=8)
-            cb = fig.colorbar(im, ax=axes[i][j], orientation="vertical", shrink=0.85, pad=0.02)
-            cb.set_label("kJ/kg", fontsize=14)
+                           cmap=style.DIVERGING_CMAP, vmin=-LIM, vmax=LIM)
+            axes[i][j].set_title(f"{qlab}, {elab} extremes", fontsize=11, pad=4)
+            style.panel_letter(axes[i][j], 2 * i + j, x=0.0, y=1.06)
             land = d.in_mask
             facts[f"mean {q} {e} (land in band, cells)"] = f"{np.nanmean(m[land]):.2f} kJ/kg"
-    fig.suptitle(f"Excess Energy Contributions · {data['T'].label()}", fontsize=24, fontweight="bold", y=1.0)
+    cb = fig.colorbar(im, ax=axes.ravel().tolist(), orientation="vertical", shrink=0.8, pad=0.02, extend="both")
+    cb.set_label("excess " + style.KJ)                    # one shared scale for all four maps
     facts.update(years=data["T"].label(), cells="all with SP > 500 hPa (ocean included)",
                  band_lines=f"{band[0]}° and {band[1]}°", projection="Robinson" if maps.HAVE_CARTOPY else "lat-lon (no cartopy)")
     return [{"path": FD.save(fig, out_dir, "excess_maps"), "title": "Excess Maps", "facts": facts,

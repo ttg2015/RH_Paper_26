@@ -40,7 +40,7 @@ def make(out_dir, years=None, weighted=True):
     xs = np.linspace(0.05, 1.0, 400)
     in_window = np.isfinite(m) & (x >= WINDOW[0]) & (x <= WINDOW[1])
     forms = (("log", "k", "-", r"$\Gamma_h C\,\ln(RH/RH_0)$"),
-             ("lin", "#00897b", "--", r"$\Gamma_h C\,(RH/RH_0-1)$"))
+             ("lin", "#0A9396", "--", r"$\Gamma_h C\,(RH/RH_0-1)$"))
     if not np.isfinite(rh0) or not in_window.any():
         forms = ()
         facts["fit"] = "skipped: no zero crossing or no populated bins in the window"
@@ -57,20 +57,17 @@ def make(out_dir, years=None, weighted=True):
         for e in ("T", "M"):                                      # same fit, same RH0, one event type
             xe, me, ne = mean_curve(H[e], ex, ey)
             facts[f"{form} fit {e} only"] = f"Γ_h·C = {-fit_k(xe, me, ne, rh0, WINDOW, form):.2f} kJ/kg (RH0 pooled)"
-    for a in (ax, axr):
-        a.axvspan(*WINDOW, color="#fff59d", alpha=0.25, zorder=0)
-        for v in WINDOW:
-            a.axvline(v, color="#f9a825", lw=1, ls="--")
+    for a in (ax, axr):                                           # the fit window, in the band style
+        style.band(a, *WINDOW, edges=True, axis="x")
     ax.axhline(0, color="k", lw=1.2, ls=":")
     if np.isfinite(rh0):
         ax.axvline(rh0, color="k", lw=0.8, alpha=0.6)
-        ax.text(rh0, YRANGE[1] * 0.93, f" RH$_0$ = {rh0:.3f}", fontsize=7)
-    ax.legend(loc="upper right", fontsize=6)
-    ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ [kJ/kg]",
-           title=f"Entrainment view: log-RH plume model · {d0.label()} · {style.band_text(FD.load('analysis'), weighted)}")
-    ax.title.set_fontsize(7)
+        ax.text(rh0, YRANGE[0] * 0.93, f" RH$_0$ = {100 * rh0:.1f}%", fontsize=7, va="bottom")
+    ax.legend(loc="upper left", fontsize=6, framealpha=0.85, edgecolor="none")
+    ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ " + style.KJ)
     axr.axhline(0, color="k", lw=0.8)
-    axr.set(xlabel="RH", ylabel="mean − model\n[kJ/kg]", ylim=(-4, 4))
+    axr.set(ylabel="mean − model\n" + style.KJ, ylim=(-4, 4))
+    style.rh_percent(axr)
     fig.tight_layout()
     facts.update(years=d0.label(), weighting="cos(lat)" if weighted else "none")
     return [{"path": FD.save(fig, out_dir, "excess_vs_rh_entrainment"), "title": "Excess vs RH · entrainment view",
