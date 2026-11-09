@@ -5,7 +5,9 @@ in each: middle latitudes, tropics with a drier free troposphere, tropics with a
 are the 3 kJ/kg grid cells of side_tests/cascade_composites.py set in side_tests/plume_top_vs_rh.REGIMES,
 so this figure and the plume-top check use the same events.
 
-(a) where the pooled events sit in the (h*500, h500) plane, on the 3 kJ/kg grid, with the regimes outlined.
+(a) where the pooled events sit in the (h*500, h500) plane, with the regimes outlined: the 0.5 kJ/kg
+    figdata histogram h2_hs500_h500 (T + M, unweighted, all terrain), or the 3 kJ/kg composite grid if no
+    figdata files are found.
 (b–d) one cascade per regime: h solid, h* dashed (at and above 600 hPa), one color per 5 % RH bin, and a
 dot at each bin's mean LCL so the mixed layer can be seen to shallow. Levels are solid where at least
 COVERAGE_MIN of the bin's events have them above ground and faded down to COVERAGE_FAINT, as in
@@ -42,6 +44,8 @@ COVERAGE_MIN, COVERAGE_FAINT = 0.9, 0.5
 CMAP = plt.cm.YlGnBu
 REGIME_COLOR = ["#7C3AED", "#D97706", "#0F766E"]              # box outlines in (a), and panel titles
 PLANE = (312.0, 348.0), (305.0, 341.0)
+X_FROM_HPA = 200.0                                            # x-limits from levels at or below this (the casc
+                                                              # levels reach 1 hPa, where MSE is far larger)
 
 
 def plane_counts(arrays):
@@ -64,16 +68,32 @@ def coverage(arrays, names):
         return w / n[:, None]
 
 
-def draw(arrays, out_dir, label=""):
+def fine_plane(years):
+    """Pooled T + M (h*500, h500) counts at 0.5 kJ/kg from the figdata files, or None if there are none."""
+    try:
+        data = [FD.FigData(e, years) for e in ("T", "M")]
+    except FileNotFoundError:
+        return None
+    name = "h2_hs500_h500"
+    if not all(name in d.hist for d in data):
+        return None
+    h = sum(d.h(name, weighted=False) for d in data)
+    return FD.crop(h, data[0].edges_of(name, "x"), data[0].edges_of(name, "y"), *PLANE)
+
+
+def draw(arrays, out_dir, label="", plane=None):
     style.apply()
     edges = arrays[0]["rh_edges"]
     norm = BoundaryNorm(edges, CMAP.N)
     fig = plt.figure(figsize=(15.5, 5.0))
-    gs = fig.add_gridspec(1, 4, width_ratios=[0.82, 1, 1, 1], wspace=0.08)
+    gs = fig.add_gridspec(1, 5, width_ratios=[0.82, 0.16, 1, 1, 1], wspace=0.08)   # column 1 is a spacer
 
     ax = style.paper_axes(fig.add_subplot(gs[0, 0]))            # (a) selection plane
-    cnt = plane_counts(arrays)
-    ax.pcolormesh(CC.GRID_HS, CC.GRID_H, np.ma.masked_equal(cnt.T, 0), cmap=style.DENSITY_CMAP, shading="flat")
+    if plane is not None:
+        cnt, ex, ey = plane
+    else:
+        cnt, ex, ey = plane_counts(arrays), CC.GRID_HS, CC.GRID_H
+    ax.pcolormesh(ex, ey, np.ma.masked_equal(cnt.T, 0), cmap=style.DENSITY_CMAP, shading="flat", rasterized=True)
     lo = max(PLANE[0][0], PLANE[1][0])
     hi = min(PLANE[0][1], PLANE[1][1])
     ax.plot((lo, hi), (lo, hi), color="k", lw=0.8, alpha=0.5)
@@ -87,7 +107,7 @@ def draw(arrays, out_dir, label=""):
 
     facts, axes = {}, []
     for k, (name, (hs, h)) in enumerate(REGIMES.items()):
-        ax = style.paper_axes(fig.add_subplot(gs[0, k + 1], sharey=axes[0] if axes else None))
+        ax = style.paper_axes(fig.add_subplot(gs[0, k + 2], sharey=axes[0] if axes else None))
         axes.append(ax)
         names = cells(hs, h)
         c = pooled(arrays, names)
@@ -112,8 +132,9 @@ def draw(arrays, out_dir, label=""):
                 o = np.argsort(lev[ok])
                 h_lcl = np.interp(np.log(p_lcl), np.log(lev[ok][o]), c["MSE"][b][ok][o])
                 ax.plot(h_lcl, p_lcl, "o", color=col, mec="k", mew=0.6, ms=5, zorder=5)
-            xs.append(np.nanmin(np.where(lev >= 150, c["MSE"][b], np.nan)))
-            xs.append(np.nanmax(np.where(cov[b] >= COVERAGE_FAINT, c["MSE"][b], np.nan)))
+            shown = (lev >= X_FROM_HPA) & (cov[b] >= COVERAGE_FAINT)       # x-range from the drawn troposphere
+            xs.append(np.nanmin(np.where(shown, c["MSE"][b], np.nan)))
+            xs.append(np.nanmax(np.where(shown, c["MSE"][b], np.nan)))
             kept += c["n"][b]
         if xs:
             ax.set_xlim(np.nanmin(xs) - 2, np.nanmax(xs) + 2)
@@ -148,7 +169,7 @@ def make(out_dir, years=None, weighted=WEIGHTED, casc=None):
     folder = Path(casc) if casc else Path(FD.load("paths")["work"]) / "side_tests" / "casc"
     A = T.load_all(folder, years=years)
     label = f"{years[0]}–{years[1]}" if years else "all years in casc/"
-    return [draw([A["T"], A["M"]], out_dir, label)]
+    return [draw([A["T"], A["M"]], out_dir, label, plane=fine_plane(years))]
 
 
 if __name__ == "__main__":
