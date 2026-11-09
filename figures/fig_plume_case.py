@@ -28,6 +28,11 @@ REPO = Path(__file__).resolve().parents[1]
 EPS = (0.0,) + tuple(style.EPS_SHOWN)
 BEIJING = (39.9, 116.4)
 PICK = dict(radius_deg=6.0, p_top_range=(250.0, 800.0))
+# Bracketing plumes outside the plausible family: the largest weak ε whose top is above 400 hPa
+# (too deep) and the smallest strong ε that stalls below 600 hPa (too shallow or diluted out).
+WEAK_CANDIDATES = (0.15, 0.1, 0.07, 0.05, 0.03, 0.02)
+STRONG_CANDIDATES = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.9, 1.0, 1.2, 1.5, 2.0)
+BRACKET_STYLE = {"weak": dict(color="#A8A29E", ls=(0, (5, 2))), "strong": dict(color="#57534E", ls=(0, (5, 2)))}
 
 
 def _open(year, event, buffer=6):
@@ -101,10 +106,25 @@ def choose(col, target, pick):
     return int(k)
 
 
-def draw(one, out_dir, label):
-    """one: a single column as (1, ...) arrays plus scalars; returns the item dict for make_all."""
+def brackets(one, window=(400.0, 600.0), margin=50.0):
+    """(weak ε, strong ε) for one column: tops at least `margin` hPa outside the window (None if none)."""
+    _, res = tops(one, WEAK_CANDIDATES + STRONG_CANDIDATES)
+    top = lambda e: float(res[e]["p_top"][0]) if res[e]["buoyant"][0] and not res[e]["at_top"][0] else (
+        50.0 if res[e]["at_top"][0] else np.inf)                 # 50 = above the column, inf = diluted out
+    weak = next((e for e in WEAK_CANDIDATES if top(e) < window[0] - margin), None)
+    strong = next((e for e in STRONG_CANDIDATES if top(e) > window[1] + margin), None)
+    return weak, strong
+
+
+def draw(one, out_dir, label, weak=None, strong=None):
+    """one: a single column as (1, ...) arrays plus scalars; returns the item dict for make_all.
+    weak / strong: bracketing ε outside the plausible family (default: chosen by brackets())."""
     style.apply()
-    cols, res = tops(one)
+    if weak is None or strong is None:
+        w, s_ = brackets(one)
+        weak, strong = weak if weak is not None else w, strong if strong is not None else s_
+    shown = [e for e in (0.0, weak) + tuple(style.EPS_SHOWN) + (strong,) if e is not None]
+    cols, res = tops(one, shown)
     p = cols.p[0]
     h_env, h_sat = cols.h[0], cols.h_sat[0]
     h0, p0, p_lcl = float(one["h0"][0]), float(one["p0"][0]), float(one["p_lcl"][0])
@@ -119,16 +139,22 @@ def draw(one, out_dir, label):
              "δ_a = h_ML − h*500": f"{h0 - hs500:+.1f} kJ/kg", "LCL of LPL air": f"{p_lcl:.0f} hPa"}
     handles = [Line2D([0], [0], color="k", lw=2.0, label="environment $h$"),
                Line2D([0], [0], color="k", lw=1.6, ls="--", label="saturated $h^*$")]
-    for e in EPS:
+    for e in shown:
         r = res[e]
         h_p = r["h_p"][0]
-        col = style.EPS_COLOR[e]
-        lw, ls = (1.4, ":") if e == 0 else (2.0, "-")
+        role = "weak" if e == weak else "strong" if e == strong else None
+        if role:
+            col, ls, lw = BRACKET_STYLE[role]["color"], BRACKET_STYLE[role]["ls"], 1.6
+        else:
+            col = style.EPS_COLOR[e]
+            lw, ls = (1.4, ":") if e == 0 else (2.0, "-")
         if r["at_top"][0]:                                      # still buoyant at 100 hPa
             top, end, where = np.nan, p.min(), "above 100 hPa"
         elif r["buoyant"][0]:
             top = end = float(r["p_top"][0])
             where = f"top {top:.0f} hPa"
+            if role:
+                where += " (too deep)" if top < 400 else " (too shallow)"
         else:                                                   # diluted out: stop at closest approach to h*
             gap = np.where(p <= p_lcl, h_sat - h_p, np.inf)
             top, end, where = np.nan, float(p[int(np.argmin(gap))]), "diluted out"
@@ -141,13 +167,14 @@ def draw(one, out_dir, label):
         name = "undilute ($\\varepsilon = 0$)" if e == 0 else f"$\\varepsilon = {e:g}$ km$^{{-1}}$"
         mk = None if e == 0 else ("o" if np.isfinite(top) else "x")
         handles.append(Line2D([0], [0], color=col, lw=lw, ls=ls, marker=mk, ms=4.5, label=f"{name}: {where}"))
-        facts[f"ε={e:g}"] = where
+        facts[f"ε={e:g}{' (' + role + ' bracket)' if role else ''}"] = where
     if h0 > hs500:                                              # δ_a = h_ML − h*500, as in Fig. 1
         ax.annotate("", xy=(h0, 500), xytext=(hs500, 500),
                     arrowprops=dict(arrowstyle="<->", color="k", lw=0.9, shrinkA=0, shrinkB=0), zorder=6)
         ax.text(0.5 * (h0 + hs500), 492, r"$\delta_a$", ha="center", va="bottom", fontsize=8.5, zorder=6)
     ax.plot(h0, p0, "s", color="k", ms=4.5, zorder=6)
-    ax.annotate("$h_{ML}$", (h0, p0), xytext=(4, -2), textcoords="offset points", fontsize=8, va="top")
+    ax.annotate("$h_{ML}$", (h0, p0), xytext=(-5, 4), textcoords="offset points", fontsize=8, ha="right",
+                va="bottom")
     ax.axhline(p_lcl, color="#6B7280", lw=0.8, ls=(0, (1, 2)), zorder=1)
     ax.text(0.98, p_lcl, "LCL", transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=7,
             color="#4B5563")
@@ -156,7 +183,7 @@ def draw(one, out_dir, label):
     upper = p >= 150
     lo_x = np.nanmin(h_env[upper]) - 2
     hi_x = max(h0, hs500) + 6
-    ax.set(xlim=(lo_x, hi_x), ylim=(min(1000.0, p0 + 15), 150), xlabel=r"MSE (kJ kg$^{-1}$)",
+    ax.set(xlim=(lo_x, hi_x), ylim=(p0 + 15, 150), xlabel=r"MSE (kJ kg$^{-1}$)",
            ylabel="Pressure (hPa)")
     ax.set_yticks(np.arange(200, 1001, 100))
     ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2,
@@ -166,14 +193,15 @@ def draw(one, out_dir, label):
             "script": "figures/fig_plume_case.py"}
 
 
-def make(out_dir, years=None, weighted=False, year=1986, event="M", target=BEIJING, pick=False):
+def make(out_dir, years=None, weighted=False, year=1986, event="M", target=BEIJING, pick=False,
+         weak=None, strong=None):
     col = columns(year, event)
     k = choose(col, target, pick)
     one = {key: (v if key == "levels" else v[k:k + 1]) for key, v in col.items()}
     lat, lon = float(one["lat"][0]), float(one["lon"][0])
     label = (f"{'wet-bulb' if event == 'M' else 'temperature'} extreme {year}, {lat:.2f}°N {lon:.2f}°E, "
              f"RH {float(one['rh'][0]):.2f}{'' if one['in_mask'][0] else ' (outside analysis mask)'}")
-    return [draw(one, out_dir, label)]
+    return [draw(one, out_dir, label, weak, strong)]
 
 
 if __name__ == "__main__":
@@ -183,9 +211,12 @@ if __name__ == "__main__":
     ap.add_argument("--lat", type=float, default=BEIJING[0])
     ap.add_argument("--lon", type=float, default=BEIJING[1])
     ap.add_argument("--pick", action="store_true", help="nearest clean example instead of the nearest point")
+    ap.add_argument("--weak", type=float, help="weak bracketing ε (default: largest that tops above 400 hPa)")
+    ap.add_argument("--strong", type=float, help="strong bracketing ε (default: smallest that stalls below 600 hPa)")
     ap.add_argument("--out", default=str(REPO / "runs" / "figs"))
     a = ap.parse_args()
-    for item in make(Path(a.out), year=a.year, event=a.event, target=(a.lat, a.lon), pick=a.pick):
+    for item in make(Path(a.out), year=a.year, event=a.event, target=(a.lat, a.lon), pick=a.pick,
+                     weak=a.weak, strong=a.strong):
         print(f"Wrote {item['path']}")
         for k, v in item["facts"].items():
             print(f"  {k}: {v}")
