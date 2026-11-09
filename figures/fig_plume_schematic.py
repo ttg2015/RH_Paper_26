@@ -11,9 +11,11 @@ both convect and the mixed-layer change is visible. Set RH_LOW / RH_HIGH to over
 Each plume starts at the composite's LPL with its mean h_LPL and is drawn up to where it meets h*.
 Shading: the δ_a/ε area of the drier plume (gray) and its growth at higher RH (teal).
 
-The mixed-layer top is the bin's mean LCL when the source has it (the paper's definition, the dots of
-Fig. 11), else the kink of the three-segment fit (side_tests/cascade_tests.pw3, Appendix A); ML_TOP picks
-"lcl", "kink" or "drop" (first level h_LPL − ML_DROP) explicitly.
+The mixed-layer top is the kink of the three-segment fit (side_tests/cascade_tests.pw3, Appendix A), the
+top the eye reads off the profile. The bin's mean LCL sits above it (an upper limit, Appendix A); ML_TOP
+= "lcl" marks that instead, "auto" uses the LCL when known, "drop" the first level h_LPL − ML_DROP.
+Profiles are drawn from the bin's mean LPL up: levels below it are below ground for part of the events
+(the near-surface hook the cascades also cut).
 
 Prototyping without Casper: on Casper write the composites to a small cache once,
     python figures/fig_plume_schematic.py --dump schematic_cache.npz
@@ -50,7 +52,7 @@ COLOR_LOW, COLOR_HIGH = "#A07C45", "#005F73"                 # dry sand / moist 
 SHADE_L, SHADE_H = "0.55", "#0A9396"                         # δ_a/ε at low RH (gray); its growth at high RH (teal)
 MIN_N = 300                                                  # events per composite
 ANNOTATE = True                # the advisor's pathways: (i) lower ML top, (ii) top, (iii) ML–FT contrast
-ML_TOP = "auto"                # "auto" (LCL if known, else kink), "lcl", "kink" or "drop"
+ML_TOP = "kink"                # "kink" (the visible ML top, Appendix A), "lcl" (upper limit), "auto", "drop"
 ML_DROP = 1.0                  # kJ/kg below h_ML for ML_TOP = "drop"
 CONTRAST_P = 650.0             # hPa, level of the (iii) arrow
 TOP_SAME = 50.0                # hPa: tops closer than this are labelled "nearly fixed"
@@ -254,7 +256,9 @@ def draw(levels, comps, label, out_dir, src=""):
     left = np.where(below_L, np.maximum(eH, cL), eH)
     ax.fill_betweenx(pg, left, cH, where=below_H & (cH > left), color=solid(SHADE_H, 0.22), lw=0)   # opaque: overlap is invisible
     for c, col in ((lo, COLOR_LOW), (hi, COLOR_HIGH)):
-        ax.plot(c["MSE"], levels, color=col, lw=2.5)
+        up = (levels <= c["p_LPL"]) & np.isfinite(c["MSE"])                 # from the LPL up, ending at h_ML there
+        o = np.argsort(levels[up])
+        ax.plot(np.r_[c["MSE"][up][o], c["h_LPL"]], np.r_[levels[up][o], c["p_LPL"]], color=col, lw=2.5)
         ax.plot(np.where(levels <= 600, c["MSE_sat"], np.nan), levels, color=col, lw=2.5, ls="--")
     ax.plot(np.where(below_L, cL, np.nan), pg, color=COLOR_LOW, lw=2, ls=":")
     ax.plot(np.where(below_H, cH, np.nan), pg, color=COLOR_HIGH, lw=2, ls=":")
@@ -262,8 +266,9 @@ def draw(levels, comps, label, out_dir, src=""):
     if ANNOTATE:
         mlL, mlH = annotate(ax, levels, lo, hi, topL, topH, cL, cH, eH, pg)
     x_hi = max(345.0, max(lo["h_LPL"], hi["h_LPL"]) + 6.5) if ANNOTATE else 345.0   # room for the (i) label
-    ax.set(ylim=(1000, 100), xlim=(320, x_hi), xlabel="MSE " + style.KJ, ylabel="Pressure [hPa]")
-    ax.set_yticks(np.arange(100, 1001, 100))
+    p_sfc = max(lo["p_LPL"], hi["p_LPL"])                              # profiles meet the bottom edge
+    ax.set(ylim=(p_sfc, 100), xlim=(320, x_hi), xlabel="MSE " + style.KJ, ylabel="Pressure [hPa]")
+    ax.set_yticks(np.arange(100, p_sfc + 1, 100))
     pct = lambda r: f"{100 * r[0]:.0f}–{100 * r[1]:.0f}%"
     ax.legend(handles=[Line2D([0], [0], color="k", lw=2.5, label="environment $h$"),
                        Line2D([0], [0], color="k", lw=2.5, ls="--", label="saturated $h^*$"),
