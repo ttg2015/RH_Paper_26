@@ -1,7 +1,8 @@
 """Plume Schematic (paper figure): composite low- and high-RH profiles with their entraining plumes.
 
-Port of Paper_Plots-2 cells 73–76 (meeting.pdf). Composites of the T_TPL box at two RH bins set apart
-(RH_LOW, RH_HIGH below) so the mixed-layer change is visible; the RH demo keeps its adjacent bins.
+Port of Paper_Plots-2 cells 73–76 (meeting.pdf). Composites of the T_TPL box at two 5 % RH bins: by default
+the driest bin from 30 % whose plume (ε = EPS) tops out, and one about GAP moister that also tops out, so
+both convect and the mixed-layer change is visible. Set RH_LOW / RH_HIGH to override.
 Each plume starts at the composite's LPL with its mean h_LPL (old version: fixed 1000 hPa) and is
 drawn up to where it meets h* (old version: hand-tuned cutoffs 555 / 500 hPa). Shading: green =
 δ_FT/ε region of the low-RH plume (gray); growth of that region at high RH (teal).
@@ -20,7 +21,9 @@ from fig_rh_demo import CASE
 from tpl_mll import ztop
 
 EPS = 0.1                      # as in the old schematic
-RH_LOW, RH_HIGH = (0.25, 0.30), (0.50, 0.55)                 # far enough apart to see the ML top move
+RH_LOW = RH_HIGH = None        # e.g. (0.40, 0.45); None = choose automatically (choose_bins)
+SCAN = np.round(np.arange(0.30, 0.70, 0.05), 2)              # lower edges of the 5 % bins scanned
+GAP = 0.15                     # aim for the moister bin this far above the drier one
 COLOR_LOW, COLOR_HIGH = "#A07C45", "#005F73"                 # dry sand / moist teal: the ends of style.RH_CMAP, darkened
 SHADE_L, SHADE_H = "0.55", "#0A9396"                         # δ_a/ε at low RH (gray); its growth at high RH (teal)
 MIN_N = 300                                                  # events per composite
@@ -37,6 +40,35 @@ def plume_on(levels, c):
                         np.array([c["h_LPL"]]), np.array([p0]))
     hp, _, p_top, *_ = cols.top(EPS)
     return cols.p[0], hp[0], cols.h[0], float(p_top[0])
+
+
+def tops_out(levels, c):
+    """True if the composite's plume at EPS reaches a top below 100 hPa (neither diluted out nor still rising)."""
+    _, _, _, top = plume_on(levels, c)
+    return np.isfinite(top) and top > ztop.P_TOP, top
+
+
+def choose_bins(d):
+    """Driest 5 % bin (from 30 %) whose plume tops out with ≥ MIN_N events, and the bin about GAP moister
+    that does too. Returns (low, high, table of every candidate) for the facts."""
+    rows, ok = [], {}
+    for lo in SCAN:
+        b = (float(lo), float(round(lo + 0.05, 2)))
+        c = FD.composite(d, CASE, *b)
+        good, top = (False, np.nan) if c["n"] < MIN_N else tops_out(d.levels, c)
+        ok[b] = good
+        what = ("too few events" if c["n"] < MIN_N else "no top (diluted out or above 100 hPa)"
+                if not np.isfinite(top) else f"top {top:.0f} hPa")
+        rows.append(f"{100 * b[0]:.0f}–{100 * b[1]:.0f}%: n {int(c['n'])}, {what}{' ✓' if good else ''}")
+    good = [b for b, g in ok.items() if g]
+    if len(good) < 2:
+        raise ValueError("fewer than two RH bins whose plume tops out:\n  " + "\n  ".join(rows))
+    low = good[0]
+    higher = [b for b in good if b[0] >= low[0] + 0.10 - 1e-9]
+    if not higher:
+        raise ValueError("no plume-topping bin 10+ points moister than the driest:\n  " + "\n  ".join(rows))
+    high = min(higher, key=lambda b: abs(b[0] - (low[0] + GAP)))
+    return low, high, rows
 
 
 def ml_top(levels, c, drop=ML_DROP):
@@ -88,8 +120,12 @@ def annotate(ax, levels, lo, hi, topL, topH, cL, cH, eH, pg):
 def make(out_dir, years=None, weighted=True):
     style.apply()
     d = FD.FigData("T", years)
-    lo, hi = FD.composite(d, CASE, *RH_LOW), FD.composite(d, CASE, *RH_HIGH)
-    for c, rng in ((lo, RH_LOW), (hi, RH_HIGH)):
+    if RH_LOW and RH_HIGH:
+        rh_low, rh_high, scan = RH_LOW, RH_HIGH, ["set by hand"]
+    else:
+        rh_low, rh_high, scan = choose_bins(d)
+    lo, hi = FD.composite(d, CASE, *rh_low), FD.composite(d, CASE, *rh_high)
+    for c, rng in ((lo, rh_low), (hi, rh_high)):
         if c["n"] < MIN_N:
             raise ValueError(f"only {int(c['n'])} {CASE} events with RH {rng[0]:.2f}–{rng[1]:.2f}; move RH_LOW/RH_HIGH")
     pL, hpL, envL, topL = plume_on(d.levels, lo)
@@ -121,8 +157,8 @@ def make(out_dir, years=None, weighted=True):
     ax.legend(handles=[Line2D([0], [0], color="k", lw=2.5, label="environment $h$"),
                        Line2D([0], [0], color="k", lw=2.5, ls="--", label="saturated $h^*$"),
                        Line2D([0], [0], color="k", lw=2, ls=":", label=f"plume, $\\varepsilon$ = {EPS:g} km$^{{-1}}$"),
-                       Line2D([0], [0], color=COLOR_LOW, lw=2.5, label=f"RH {pct(RH_LOW)}"),
-                       Line2D([0], [0], color=COLOR_HIGH, lw=2.5, label=f"RH {pct(RH_HIGH)}"),
+                       Line2D([0], [0], color=COLOR_LOW, lw=2.5, label=f"RH {pct(rh_low)}"),
+                       Line2D([0], [0], color=COLOR_HIGH, lw=2.5, label=f"RH {pct(rh_high)}"),
                        Patch(fc=SHADE_L, alpha=0.18, label=r"$\delta_{a}/\varepsilon$, drier"),
                        Patch(fc=SHADE_H, alpha=0.22, label=r"growth at higher RH")],
               fontsize=5.5, loc="upper left", framealpha=0.9, edgecolor="#9CA3AF", handlelength=2.2,
@@ -130,7 +166,9 @@ def make(out_dir, years=None, weighted=True):
     fig.tight_layout()
     facts = {"eps": f"{EPS} km⁻¹", "plume top low RH": f"{topL:.0f} hPa", "plume top high RH": f"{topH:.0f} hPa",
              "start": f"LPL of composite (low {lo['p_LPL']:.0f}, high {hi['p_LPL']:.0f} hPa)", "years": d.label(),
-             "ML top (h_LPL − 1 kJ/kg)": f"low {mlL:.0f}, high {mlH:.0f} hPa"}
+             "ML top (h_LPL − 1 kJ/kg)": f"low {mlL:.0f}, high {mlH:.0f} hPa",
+             "RH bins": f"{100 * rh_low[0]:.0f}–{100 * rh_low[1]:.0f}% and {100 * rh_high[0]:.0f}–{100 * rh_high[1]:.0f}%",
+             "candidates (✓ = tops out, enough events)": "; ".join(scan)}
     return [{"path": FD.save(fig, out_dir, "plume_schematic"), "title": "Plume Schematic", "facts": facts,
              "script": "figures/fig_plume_schematic.py"}]
 
