@@ -158,6 +158,12 @@ def figure(results, path):
         style.panel_letter(ax, k)
     axes[0].set_ylabel("plume top of the composite (hPa)")
     axes[0].legend(fontsize=7, loc="lower left", frameon=False)
+    z_max = 0.0                                                      # one height scale that fits every panel
+    for c, tops in results.values():
+        ok = c["n"] >= MIN_N
+        for z in heights(c, tops).values():
+            z_max = max(z_max, np.nanmax(np.where(ok, z, np.nan), initial=0.0))
+        z_max = max(z_max, np.nanmax(np.where(ok, c["zLCL_LPL"] / 1000.0, np.nan), initial=0.0))
     for k, (ax, (name, (c, tops))) in enumerate(zip(grid[1], results.items())):  # the same in height
         style.paper_axes(ax)
         ok = c["n"] >= MIN_N
@@ -169,7 +175,7 @@ def figure(results, path):
             ax.fill_between(x, z_lcl, np.where(ok, zt[e], np.nan), color=style.EPS_COLOR[e], alpha=0.10, lw=0)
         ax.plot(x, z_lcl, color="#6B7280", lw=1.2, ls=(0, (1, 2)))
         ax.axvspan(*WINDOW, color="0.85", alpha=0.35, lw=0, zorder=0)
-        ax.set(xlim=(0, 1), ylim=(0, None), xlabel="surface RH")
+        ax.set(xlim=(0, 1), ylim=(0, 1.08 * z_max), xlabel="surface RH")
         style.panel_letter(ax, k + len(results))
     grid[1][0].set_ylabel("height above ground (km)")
     fig.tight_layout()
