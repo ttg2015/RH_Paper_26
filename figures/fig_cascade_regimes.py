@@ -63,7 +63,9 @@ RH_MAX = 0.80                                                 # paper version: b
                                                               # (above it the kink fit is erratic and h_ML has
                                                               # plateaued); cascade_regimes_full keeps every bin
 GAMMA_GUIDE = 5.8                                             # kJ/kg/km, fitted in fig_excess_vs_rh_entrainment
-GUIDE_RH, GUIDE_DZ, GUIDE_OFFSET = 0.45, 1.5, -4.0            # anchor bin, length [km], shift left of the LCL [kJ/kg]
+GUIDE_RH, GUIDE_DZ, GUIDE_OFFSET = 0.45, 1.5, 4.0             # anchor bin, length [km], shift right of the LCL
+                                                              # [kJ/kg], into the empty space under h* (left was
+                                                              # off the axis on the 2026-11-10 run)
 GUIDE_COLOR = "#6B7280"
 X_FROM_HPA = 200.0                                            # x-limits from levels at or below this (the casc
                                                               # levels reach 1 hPa, where MSE is far larger)
@@ -236,7 +238,7 @@ def rh_colorbar(fig, axes, edges, norm, rh_max=None):
     cb.ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{100 * v:.0f}"))
     cb.outline.set_edgecolor(style.SPINE)
     if rh_max is not None:
-        top = edges[np.searchsorted(edges, rh_max + 1e-9)] if rh_max < edges[-1] else edges[-1]
+        top = edges[min(np.searchsorted(edges, rh_max - 1e-9), len(edges) - 1)]   # edge of the last drawn bin
         cb.ax.set_ylim(edges[0], top)
     return cb
 
