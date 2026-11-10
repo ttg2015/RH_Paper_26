@@ -33,6 +33,32 @@ def regime_box():
     return REGIMES[S.REGIME], style.REGIME_COLOR[names.index(S.REGIME) % len(style.REGIME_COLOR)]
 
 
+def draw_hist_profiles(ax_hist, ax_prof, levels, comps, rh_low, rh_high, titles=True):
+    """Panels (b) and (c): the RH distribution in the regime with the two bins colored, and their profiles."""
+    ax = {1: ax_hist, 2: ax_prof}
+    # (b) RH distribution inside the regime, the two bins colored
+    for b in sorted(comps):
+        col = S.COLOR_LOW if b == rh_low else S.COLOR_HIGH if b == rh_high else "0.7"
+        ax[1].bar(0.5 * (b[0] + b[1]), comps[b]["n"] / 1000.0, width=0.048, color=col, lw=0)
+    ax[1].set(ylabel=r"events [$10^3$]", title="bin by surface RH" if titles else "", xlim=(0, 1))
+    style.rh_percent(ax[1])
+
+    # (c) the two mean profiles
+    pct = lambda r: f"{100 * r[0]:.0f}–{100 * r[1]:.0f}%"
+    for b, col in ((rh_low, S.COLOR_LOW), (rh_high, S.COLOR_HIGH)):
+        c = comps[b]
+        up = (levels <= c["p_LPL"]) & np.isfinite(c["MSE"])
+        o = np.argsort(levels[up])
+        ax[2].plot(np.r_[c["MSE"][up][o], c["h_LPL"]], np.r_[levels[up][o], c["p_LPL"]], color=col, lw=1.8,
+                   label=f"RH {pct(b)}")
+        ax[2].plot(np.where(levels <= 600, c["MSE_sat"], np.nan), levels, color=col, lw=1.6, ls="--")
+    p_sfc = max(comps[rh_low]["p_LPL"], comps[rh_high]["p_LPL"])
+    ax[2].plot([], [], color="0.3", lw=1.6, ls="--", label=r"$h^*$")
+    ax[2].set(ylim=(p_sfc, 100), xlim=(320, 355), xlabel="MSE " + style.KJ, ylabel="Pressure [hPa]",
+              title="average each bin" if titles else "")
+    ax[2].legend(fontsize=7, loc="lower left", frameon=False)
+
+
 def draw(levels, comps, label, out_dir, plane=None, src=""):
     style.apply()
     rh_low, rh_high, _ = S.pair(levels, comps)
@@ -54,27 +80,8 @@ def draw(levels, comps, label, out_dir, plane=None, src=""):
     ax[0].add_patch(Rectangle((hs[0], h[0]), hs[1] - hs[0], h[1] - h[0], lw=1.8, ec=box_color, fill=False))
     ax[0].set(xlabel=r"$h^*_{500}$ " + style.KJ, ylabel=r"$h_{500}$ " + style.KJ, title="select a regime")
 
-    # (b) RH distribution inside the regime, the two bins colored
-    for b in sorted(comps):
-        col = S.COLOR_LOW if b == rh_low else S.COLOR_HIGH if b == rh_high else "0.7"
-        ax[1].bar(0.5 * (b[0] + b[1]), comps[b]["n"] / 1000.0, width=0.048, color=col, lw=0)
-    ax[1].set(ylabel=r"events [$10^3$]", title="bin by surface RH", xlim=(0, 1))
-    style.rh_percent(ax[1])
-
-    # (c) the two mean profiles
+    draw_hist_profiles(ax[1], ax[2], levels, comps, rh_low, rh_high)
     pct = lambda r: f"{100 * r[0]:.0f}–{100 * r[1]:.0f}%"
-    for b, col in ((rh_low, S.COLOR_LOW), (rh_high, S.COLOR_HIGH)):
-        c = comps[b]
-        up = (levels <= c["p_LPL"]) & np.isfinite(c["MSE"])
-        o = np.argsort(levels[up])
-        ax[2].plot(np.r_[c["MSE"][up][o], c["h_LPL"]], np.r_[levels[up][o], c["p_LPL"]], color=col, lw=1.8,
-                   label=f"RH {pct(b)}")
-        ax[2].plot(np.where(levels <= 600, c["MSE_sat"], np.nan), levels, color=col, lw=1.6, ls="--")
-    p_sfc = max(comps[rh_low]["p_LPL"], comps[rh_high]["p_LPL"])
-    ax[2].plot([], [], color="0.3", lw=1.6, ls="--", label=r"$h^*$")
-    ax[2].set(ylim=(p_sfc, 100), xlim=(320, 355), xlabel="MSE " + style.KJ, ylabel="Pressure [hPa]",
-              title="average each bin")
-    ax[2].legend(fontsize=7, loc="lower left", frameon=False)
     for k, a in enumerate(ax):
         style.panel_letter(a, k)
     facts = {"source": src or S.source_name(), "regime box": f"h*500 {hs[0]:g}–{hs[1]:g}, h500 {h[0]:g}–{h[1]:g}",

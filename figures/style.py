@@ -24,8 +24,11 @@ WINDOW_COLOR = "#6B7280"                                    # the driest RH prof
 EPS_SHOWN = (0.2, 0.3, 0.4)                                 # km⁻¹
 EPS_COLOR = {0.0: "#9CA3AF", 0.1: "#8CB369", 0.2: "#E0A040", 0.3: "#3A8FB7", 0.4: "#5B2A86"}
 # 0.1 sage (pooled tops only), 0.2 ochre, 0.3 blue-green, 0.4 plum; colorblind-checked against each other and the brackets
-BRACKET_COLOR = {"weak": "#A8A29E", "strong": "#57534E"}    # ε outside the plausible family, dashed
-BRACKET_LS = (0, (5, 2))
+# ε outside the plausible range: one maroon, solid ("bad", not new physics; Ed, 2026-11-10). Weak and strong
+# sit at opposite ends of the column, so they need no second color. ΔE ≥ 37 from every EPS_COLOR under
+# deuteranopia, protanopia and tritanopia (Machado 2009 simulation, CIELAB).
+BRACKET_COLOR = {"weak": "#7A1E2E", "strong": "#7A1E2E"}
+BRACKET_LS = "-"
 DIVERGING_CMAP = "coolwarm"                                 # maps of δ_a and δ_S
 REGIME_COLOR = ["#7C3AED", "#D97706", "#0F766E"]            # cascade regimes (b, c, d)
 

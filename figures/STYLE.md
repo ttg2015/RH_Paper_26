@@ -14,7 +14,7 @@ sheets that led to them are in `draft-merged/storyline/style_options/`, includin
 | ε = 0.1 (pooled tops, Fig 7 only) | sage | `#8CB369` |
 | Low / high RH pair (schematic, RH demo) | dark sand / dark teal | `#A07C45`, `#005F73` |
 | Undilute plume (ε = 0) | gray, dotted | `#9CA3AF` |
-| Bracketing ε (too weak / too strong) | light / dark gray, dashed | `#A8A29E`, `#57534E` |
+| Bracketing ε (too weak / too strong) | one maroon, solid (2026-11-10: dashed read as new physics) | `#7A1E2E` |
 | 400–600 hPa band | light cool gray (sand matched the driest RH profiles) | `#9CA3AF` at alpha 0.18; edges and labels `#6B7280` |
 | Diverging maps (Fig 4) | coolwarm | matplotlib `coolwarm`, symmetric limits |
 | Regime boxes (Fig 11) | violet / orange / teal | `#7C3AED`, `#D97706`, `#0F766E` |

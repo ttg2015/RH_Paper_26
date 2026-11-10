@@ -16,7 +16,7 @@ import figdata as FD
 import style
 from fig_excess_vs_rh import (XRANGE, YRANGE, EVENT_LINE, draw_plane, mean_curve, plane)
 
-C_KM = 1.8                       # constant C in dz_LCL/dRH ≈ −C/RH (ERA5 LCL fit, as in the paper)
+C_KM = 1.8                       # constant C in dz_LCL/dRH ≈ −C/RH (mid-range of the Romps-LCL derivation, Appendix A)
 WINDOW = (0.30, 0.60)            # RH fit window (E11: still to be chosen; drawn as used)
 
 

@@ -5,7 +5,8 @@ both event types. One curve per ε in SHOWN (0.1 plus style.EPS_SHOWN), colored 
 (fig_plume_case.py). Each curve is the share of unstable events (buoyant at ε = 0) whose plume tops out
 in each 20 hPa bin, so its area is the share that tops out anywhere; the rest are diluted out. The legend
 gives the share topping in the 400–600 hPa window and the share diluted out. With --brackets, the
-smallest and largest ε of the sweep are added as dashed gray curves, as in the case study.
+smallest and largest ε of the sweep are added as thin maroon curves (outside the plausible range), as in the
+case study. No dashed lines and no fills (decluttered 2026-11-10); --no-brackets drops the maroon curves.
 
 Not latitude weighted, like the other stage f figures and the shares quoted in the text.
     python figures/fig_ztop_pooled.py [--years 1980-2019] [--brackets]
@@ -62,7 +63,7 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
 
     fig, ax = plt.subplots(figsize=(3.8, 4.6))
     style.paper_axes(ax)
-    style.band(ax, lo, hi, edges=True, label=f"{lo:g}–{hi:g} hPa")
+    style.band(ax, lo, hi, edges=False, label=f"{lo:g}–{hi:g} hPa")
 
     handles, facts, xmax = [], {}, 0.0
     curves = [(e, None) for e in shown]
@@ -79,16 +80,15 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
         med = quantile_p(h[k], pc, 0.5)
         if role:
             st = BRACKET_STYLE[role]
-            col, ls, lw = st["color"], st["ls"], 1.5
+            col, ls, lw = st["color"], st["ls"], 1.2
             ax.plot(x, y, color=col, ls=ls, lw=lw, zorder=3)
         else:
-            col, ls, lw = style.EPS_COLOR[e], "-", 2.2
-            ax.fill_betweenx(y, 0, x, color=col, alpha=0.12, lw=0, zorder=2)
+            col, ls, lw = style.EPS_COLOR[e], "-", 2.0
             ax.plot(x, y, color=col, lw=lw, zorder=4)
         ax.plot(1.0, med, marker="<", color=col, ms=6, transform=ax.get_yaxis_transform(), clip_on=False,
                 zorder=5)
         handles.append(Line2D([0], [0], color=col, lw=lw, ls=ls,
-                              label=f"$\\varepsilon = {e:g}$: {in_win:.0f}% in band, {dil:.0f}% diluted out"))
+                              label=f"$\\varepsilon = {e:g}$: {in_win:.0f}% in band, {dil:.0f}% diluted"))
         facts[f"ε={e:g}"] = (f"median top {med:.0f} hPa; {in_win:.0f}% of unstable events top in {lo:g}–{hi:g} hPa; "
                              f"{dil:.0f}% diluted out")
     ax.set(ylim=(1000, 100), xlim=(0, 1.08 * xmax), xlabel=f"unstable events per {5 * P_COARSEN} hPa [%]",
@@ -104,7 +104,7 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
     return {"path": path, "title": "Plume tops, pooled", "facts": facts, "script": "figures/fig_ztop_pooled.py"}
 
 
-def make(out_dir, years=None, weighted=WEIGHTED, brackets=False):
+def make(out_dir, years=None, weighted=WEIGHTED, brackets=True):
     eps, h, cat, pe, label = pooled(years, weighted)
     window = tuple(FD.load("analysis")["ztop_window_hPa"])
     item = draw(eps, h, cat, pe, out_dir, brackets=(eps[0], eps[-1]) if brackets else None, window=window)
@@ -115,7 +115,9 @@ def make(out_dir, years=None, weighted=WEIGHTED, brackets=False):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--years", help="e.g. 1980-2019 (default: all figdata files)")
-    ap.add_argument("--brackets", action="store_true", help="add the smallest and largest ε of the sweep in gray")
+    ap.add_argument("--no-brackets", dest="brackets", action="store_false",
+                    help="drop the smallest and largest ε of the sweep (maroon)")
+    ap.add_argument("--brackets", action="store_true", help="(default; kept so old commands still run)")
     ap.add_argument("--out", default=str(REPO / "runs" / "figs"))
     a = ap.parse_args()
     for item in make(Path(a.out), FD.years_arg(a.years), brackets=a.brackets):
