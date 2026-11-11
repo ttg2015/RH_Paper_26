@@ -19,6 +19,7 @@ Outputs go to `<work>/side_tests/` on scratch.
 | blue numbers the figure facts don't give | `blue_checks.py` (login node) | stage g files |
 | h_ML spread inside the null cells; latitude and h*500 per RH bin | `cell_spread.py` (login node or qcmd) | profiles + derived, one level |
 | 7 model vs pressure levels | `t7_model_levels.py` **parked: not in the job, never run** | — |
+| surface jump: h_2m vs lowest model level, and Task 7 on the same events (2026-11-10) | `surface_jump.py` (`plan` on login node) + `run_surface_jump.pbs` | stages b, c2, d; RDA d633006 model levels |
 
 ## Commands (on Casper, repo root)
 

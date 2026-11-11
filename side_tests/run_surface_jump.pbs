@@ -1,0 +1,16 @@
+#!/bin/bash -l
+# Surface jump (h_2m vs lowest model level) on a stratified sample of extremes; also parked Task 7.
+# Read-only on the pipeline; writes only under $OUT. Submit from the repo root:
+#   python side_tests/surface_jump.py plan          # login node, a few minutes: picks the events
+#   qsub side_tests/run_surface_jump.pbs            # reads the model levels, then writes the report
+#PBS -N surface_jump
+#PBS -A UNYU0020
+#PBS -q casper
+#PBS -l walltime=06:00:00
+#PBS -l select=1:ncpus=8:mem=64GB
+#PBS -j oe
+#PBS -o /glade/derecho/scratch/tylerg/ExtremeHeat/Paper26_Cleaned/logs/surface_jump.log
+
+module load conda && conda activate npl
+cd "$PBS_O_WORKDIR"
+python side_tests/surface_jump.py sample --procs 8 && python side_tests/surface_jump.py report
