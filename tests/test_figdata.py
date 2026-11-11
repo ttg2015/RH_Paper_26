@@ -113,13 +113,15 @@ class TestFigData(unittest.TestCase):
         sys.argv = ["make_all.py", "--out", str(out)]
         make_all.main()
         index = (out / "index.html").read_text()
-        # the toy work dir has no side_tests/casc composites, so the figures built on them may report a failure
-        casc = ("fig_plume_schematic", "fig_rh_demo", "fig_cascade_regimes", "fig_rh_composites")
+        # the toy work dir has no side_tests/casc composites and no RDA model levels, so the figures built on
+        # them may report a failure
+        casc = ("fig_plume_schematic", "fig_rh_demo", "fig_cascade_regimes", "fig_rh_composites",
+                "fig_example_profiles")
         self.assertEqual(index.count("failed</h2>"), sum(index.count(f"{m} failed</h2>") for m in casc))
         for name in ("excess_histograms", "excess_histograms_unweighted", "weighting_check", "surface_layer",
                      "excess_maps", "excess_vs_rh", "excess_vs_rh_entrainment", "lcl_binned",
                      "convective_maps", "cascade", "excess_vs_zlcl", "wbt_increase", "ztop_fractions",
-                     "delta_s_ft_vs_rh", "example_profiles", "box_hits_tp_ml", "box_hits_locations",
+                     "delta_s_ft_vs_rh", "box_hits_tp_ml", "box_hits_locations",
                      "strike_points", "strike_map", "collapse_rh", "excess_histograms_rh",
                      "strike_points_rh", "ztop_fractions_rh"):
             self.assertTrue((out / f"{name}.png").exists(), name)
