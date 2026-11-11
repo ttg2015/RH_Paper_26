@@ -85,7 +85,7 @@ def make(out_dir, years=None, weighted=True):
 def draw(data, ex, ey, H, out_dir, weighted=False, model=False):
     d0 = data["T"]
     if model:                                          # one panel: clouds, mean and fits only
-        fig, ax = plt.subplots(figsize=(3.7, 3.4))
+        fig, ax = plt.subplots(figsize=(6.8, 3.6))      # full page width (39pc), 2026-11-11
         axc = None
     else:
         fig = plt.figure(figsize=(3.7, 4.0))
@@ -114,7 +114,7 @@ def draw(data, ex, ey, H, out_dir, weighted=False, model=False):
         axc.tick_params(labelbottom=False, labelsize=7)
 
     if model:
-        cb = fig.colorbar(cf, ax=ax, pad=0.03, fraction=0.05)
+        cb = fig.colorbar(cf, ax=ax, pad=0.015, fraction=0.03)
     else:
         fig.canvas.draw()
         pos = ax.get_position()
