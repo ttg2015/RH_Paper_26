@@ -4,9 +4,9 @@ Port of Paper_Plots-2 cell 59 onto figure data: smoothed pooled density (purple)
 density contours, the 50 % / 75 % regions of T and M events, the mean δ_FT, stable/unstable
 labels and a count strip. Fixes: the combined count is T + M counts (E09), and RH0 is found
 by interpolating the mean's zero crossing (E09/E11).
-Also writes excess_vs_rh_model (old Figs 5 + 11, 2026-11-10): the same plane with the log-RH model and its
-linear form fitted to the mean (fig_excess_vs_rh_entrainment.draw_model), the fit window, and a residual
-strip below.
+Also writes excess_vs_rh_model (paper Fig. 5, old Figs 5 + 11): the same plane with the log-RH model and its
+linear form fitted to the mean (fig_excess_vs_rh_entrainment.draw_model) and the fit window; since 2026-11-11
+without the count strip (now in fig_delta_parts_vs_rh), the residual strip or the white density contours.
     python figures/fig_excess_vs_rh.py [--years 1980-2019] [--unweighted]
 """
 import matplotlib
@@ -44,16 +44,17 @@ def mean_curve(h, ex, ey):
     return FD.centers(exx), m, n
 
 
-def draw_plane(ax, ex, ey, H, labels=True):
-    """Density, white contours, T/M mass contours. Returns the contourf for a colorbar."""
+def draw_plane(ax, ex, ey, H, labels=True, white=True):
+    """Density, white contours (white=False drops them), T/M mass contours. Returns the contourf for a colorbar."""
     pooled = H["T"] + H["M"]
     hp, cx, cy = FD.crop(pooled, ex, ey, XRANGE, YRANGE)
     xc, yc = FD.centers(cx), FD.centers(cy)
     hs = FD.smooth(hp, SIGMA).T
     cf = ax.contourf(xc, yc, 100 * hs / hs.sum(), levels=CONTOURF_LEVELS, cmap=style.DENSITY_CMAP)
-    nz = hs[hs > 0]
-    lv = np.linspace(np.percentile(nz, WHITE_MIN_PCT), hs.max(), WHITE_LEVELS + 1)
-    ax.contour(xc, yc, hs, levels=lv, colors="white", linewidths=1.5, alpha=0.8)
+    if white:
+        nz = hs[hs > 0]
+        lv = np.linspace(np.percentile(nz, WHITE_MIN_PCT), hs.max(), WHITE_LEVELS + 1)
+        ax.contour(xc, yc, hs, levels=lv, colors="white", linewidths=1.5, alpha=0.8)
     for e in ("T", "M"):
         he = FD.smooth(FD.crop(H[e], ex, ey, XRANGE, YRANGE)[0], SIGMA).T
         lev = FD.mass_levels(he, PCT)
@@ -65,6 +66,16 @@ def draw_plane(ax, ex, ey, H, labels=True):
     return cf
 
 
+def count_strip(axc, H, ex):
+    """T, M and combined event counts per RH bin (E09: counts are added, not the RH values)."""
+    for e, color in (("T", EVENT_LINE["T"]), ("M", EVENT_LINE["M"]), ("TM", "0.35")):
+        h = H["T"] + H["M"] if e == "TM" else H[e]
+        hx, exx = FD.coarsen(h, ex, MEAN_COARSEN, axis=0)
+        axc.step(FD.centers(exx), hx.sum(axis=1) / 1000.0, where="mid", color=color, lw=1.2)
+    axc.set_ylabel(r"events [$10^3$]", fontsize=7)
+    axc.set_ylim(bottom=0)
+
+
 def make(out_dir, years=None, weighted=True):
     style.apply()
     data, ex, ey, H = plane(years, weighted)
@@ -73,22 +84,20 @@ def make(out_dir, years=None, weighted=True):
 
 def draw(data, ex, ey, H, out_dir, weighted=False, model=False):
     d0 = data["T"]
-    if model:
-        fig = plt.figure(figsize=(3.7, 5.0))
-        gs = fig.add_gridspec(3, 1, height_ratios=[1, 5, 1.4], hspace=0.07)
+    if model:                                          # one panel: clouds, mean and fits only
+        fig, ax = plt.subplots(figsize=(3.7, 3.4))
+        axc = None
     else:
         fig = plt.figure(figsize=(3.7, 4.0))
         gs = fig.add_gridspec(2, 1, height_ratios=[1, 5], hspace=0.05)
-    axc = fig.add_subplot(gs[0])
-    ax = fig.add_subplot(gs[1], sharex=axc)
-    cf = draw_plane(ax, ex, ey, H, labels=not model)
+        axc = fig.add_subplot(gs[0])
+        ax = fig.add_subplot(gs[1], sharex=axc)
+    cf = draw_plane(ax, ex, ey, H, labels=not model, white=not model)
 
     fit_facts = {}
     if model:                                          # mean as dots, with the fitted models over it
         import fig_excess_vs_rh_entrainment as ENT
-        axr = fig.add_subplot(gs[2], sharex=axc)
-        _, fit_facts = ENT.draw_model(ax, axr, H, ex, ey)
-        ax.tick_params(labelbottom=False)
+        _, fit_facts = ENT.draw_model(ax, None, H, ex, ey)
     else:
         x, m, _ = mean_curve(H["T"] + H["M"], ex, ey)
         ax.plot(x, m, color="gray", lw=1.5, marker=".", ms=6, alpha=0.9, zorder=5)
@@ -98,22 +107,18 @@ def draw(data, ex, ey, H, out_dir, weighted=False, model=False):
         ax.annotate(f"RH$_0$ = {100 * rh0:.1f}%", (rh0, 0), xytext=(8, -16), textcoords="offset points", fontsize=7)
     ax.axhline(0, color="k", lw=1.5, ls=":")
     ax.text(0.25, 13.0, "Unstable", fontsize=11, va="center")
-    ax.text(0.42, -10.0, "Stable", fontsize=11, va="center")
+    ax.text(*((0.26, -17.0) if model else (0.42, -10.0)), "Stable", fontsize=11, va="center")   # model: clear of the legend
 
-    # count strip: T, M and their combined counts (E09: counts are added, not the RH values)
-    for e, color, lab in (("T", EVENT_LINE["T"], None), ("M", EVENT_LINE["M"], None),
-                          ("TM", "0.35", "both")):
-        h = H["T"] + H["M"] if e == "TM" else H[e]
-        hx, exx = FD.coarsen(h, ex, MEAN_COARSEN, axis=0)
-        n = hx.sum(axis=1)
-        axc.step(FD.centers(exx), n / 1000.0, where="mid", color=color, lw=1.2)
-    axc.set_ylabel(r"events [$10^3$]", fontsize=7)
-    axc.tick_params(labelbottom=False, labelsize=7)
-    axc.set_ylim(bottom=0)
+    if axc is not None:
+        count_strip(axc, H, ex)
+        axc.tick_params(labelbottom=False, labelsize=7)
 
-    fig.canvas.draw()
-    pos = ax.get_position()
-    cb = fig.colorbar(cf, cax=fig.add_axes([pos.x1 + 0.01, pos.y0, 0.02, pos.height]))
+    if model:
+        cb = fig.colorbar(cf, ax=ax, pad=0.03, fraction=0.05)
+    else:
+        fig.canvas.draw()
+        pos = ax.get_position()
+        cb = fig.colorbar(cf, cax=fig.add_axes([pos.x1 + 0.01, pos.y0, 0.02, pos.height]))
     cb.set_label("events per bin [%]")
     handles = [mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=style.EVENT_SHORT["T"]),
                mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=style.EVENT_SHORT["M"]),
@@ -124,7 +129,9 @@ def draw(data, ex, ey, H, out_dir, weighted=False, model=False):
     ax.legend(handles=handles, loc="lower right" if model else "upper left", fontsize=6,   # lower right is empty (dry, unstable) framealpha=0.85 if model else None,
               edgecolor="none" if model else None)
     ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ " + style.KJ)
-    style.rh_percent(axr if model else ax)
+    style.rh_percent(ax)
+    if model:
+        fig.tight_layout()
     facts = {"RH0 (pooled mean crosses 0)": f"{rh0:.3f}", "years": d0.label(),
              "weighting": "cos(lat)" if weighted else "none",
              "bins": "0.5 % RH × 0.25 kJ/kg, smoothed σ = 2 % RH × 0.75 kJ/kg",

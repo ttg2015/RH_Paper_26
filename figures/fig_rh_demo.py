@@ -49,11 +49,11 @@ def draw_hist_profiles(ax_hist, ax_prof, levels, comps, rh_low, rh_high, titles=
         c = comps[b]
         up = (levels <= c["p_LPL"]) & np.isfinite(c["MSE"])
         o = np.argsort(levels[up])
-        ax[2].plot(np.r_[c["MSE"][up][o], c["h_LPL"]], np.r_[levels[up][o], c["p_LPL"]], color=col, lw=1.8,
-                   label=f"RH {pct(b)}")
-        ax[2].plot(np.where(levels <= 600, c["MSE_sat"], np.nan), levels, color=col, lw=1.6, ls="--")
+        ax[2].plot(np.r_[c["MSE"][up][o], c["h_LPL"]], np.r_[levels[up][o], c["p_LPL"]], color=col, lw=2.5,
+                   label=f"RH {pct(b)}")              # as thick as Fig. 7, which shows the same two profiles
+        ax[2].plot(np.where(levels <= 600, c["MSE_sat"], np.nan), levels, color=col, lw=2.5, ls="--")
     p_sfc = max(comps[rh_low]["p_LPL"], comps[rh_high]["p_LPL"])
-    ax[2].plot([], [], color="0.3", lw=1.6, ls="--", label=r"$h^*$")
+    ax[2].plot([], [], color="0.3", lw=2.5, ls="--", label=r"$h^*$")
     ax[2].set(ylim=(p_sfc, 100), xlim=(320, 355), xlabel="MSE " + style.KJ, ylabel="Pressure [hPa]",
               title="average each bin" if titles else "")
     ax[2].legend(fontsize=7, loc="lower left", frameon=False)

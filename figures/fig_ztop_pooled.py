@@ -1,7 +1,7 @@
 """Plume tops, pooled (paper figure): where entraining plumes top out, T and wet-bulb extremes together.
 
 From stage f's plume tops summed in stage g (strike_ptop, strike_category), pooled over years and over
-both event types. One curve per ε in SHOWN (0.1 plus style.EPS_SHOWN), colored as in the plume case study
+both event types. One curve per ε in SHOWN (style.EPS_SHOWN; 0.1 dropped 2026-11-11), colored as in the plume case study
 (fig_plume_case.py). Each curve is the share of unstable events (buoyant at ε = 0) whose plume tops out
 in each 20 hPa bin, so its area is the share that tops out anywhere; the rest are diluted out. The legend
 gives the share topping in the 400–600 hPa window and the share diluted out. With --brackets, the
@@ -25,7 +25,7 @@ import style
 
 REPO = Path(__file__).resolve().parents[1]
 WEIGHTED = False
-SHOWN = (0.1,) + tuple(style.EPS_SHOWN)              # ε drawn in color: the case-study three plus 0.1
+SHOWN = tuple(style.EPS_SHOWN)                       # ε drawn in color: the case-study three
 P_COARSEN = 4                                        # 5 → 20 hPa (10 hPa curves were jagged)
 DILUTED, PASS = 5, 1                                 # stage f category codes
 BRACKET_STYLE = {r: dict(color=c, ls=style.BRACKET_LS) for r, c in style.BRACKET_COLOR.items()}
@@ -79,7 +79,7 @@ def panel(ax, eps, h, cat, pe, shown=None, brackets=None, window=(400.0, 600.0))
         med = quantile_p(h[k], pc, 0.5)
         if role:
             st = BRACKET_STYLE[role]
-            col, ls, lw = st["color"], st["ls"], 1.2
+            col, ls, lw = st["color"], st["ls"], 1.3
             ax.plot(x, y, color=col, ls=ls, lw=lw, zorder=3)
         else:
             col, ls, lw = style.EPS_COLOR[e], "-", 2.0
@@ -113,7 +113,7 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
 def make(out_dir, years=None, weighted=WEIGHTED, brackets=True):
     eps, h, cat, pe, label = pooled(years, weighted)
     window = tuple(FD.load("analysis")["ztop_window_hPa"])
-    item = draw(eps, h, cat, pe, out_dir, brackets=(eps[0], eps[-1]) if brackets else None, window=window)
+    item = draw(eps, h, cat, pe, out_dir, brackets=style.BRACKET_EPS if brackets else None, window=window)
     item["facts"]["years"] = label
     return [item]
 

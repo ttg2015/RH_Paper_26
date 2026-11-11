@@ -21,13 +21,16 @@ SPINE = "#444444"
 BAND_COLOR, BAND_ALPHA = "#9CA3AF", 0.18                    # the 400–600 hPa band: light cool gray (sand matched
 WINDOW_COLOR = "#6B7280"                                    # the driest RH profiles); darker gray for edges/labels
 # Entrainment rates shown in the plume figures (case study, pooled tops, schematic): light → dark
-EPS_SHOWN = (0.2, 0.3, 0.4)                                 # km⁻¹
-EPS_COLOR = {0.0: "#9CA3AF", 0.1: "#8CB369", 0.2: "#E0A040", 0.3: "#3A8FB7", 0.4: "#5B2A86"}
-# 0.1 sage (pooled tops only), 0.2 ochre, 0.3 blue-green, 0.4 plum; colorblind-checked against each other and the brackets
-# ε outside the plausible range: one maroon, solid ("bad", not new physics; Ed, 2026-11-10). Weak and strong
-# sit at opposite ends of the column, so they need no second color. ΔE ≥ 37 from every EPS_COLOR under
-# deuteranopia, protanopia and tritanopia (Machado 2009 simulation, CIELAB).
-BRACKET_COLOR = {"weak": "#7A1E2E", "strong": "#7A1E2E"}
+# 2026-11-11: the family is 0.15/0.2/0.3, the rates that top out in the band on the mean profile of Fig. 6a,
+# and both Fig. 6 panels show exactly EPS_SHOWN plus the two brackets, in the same colors.
+EPS_SHOWN = (0.15, 0.2, 0.3)                                # km⁻¹
+EPS_COLOR = {0.0: "#C9CED6", 0.15: "#E0A040", 0.2: "#3A8FB7", 0.3: "#5B2A86"}
+# 0.15 ochre, 0.2 blue-green, 0.3 plum (light → dark); undilute a light gray, dotted
+# ε outside the plausible range: solid ("bad", not new physics; Ed, 2026-11-10), one color per side
+# (Tyler, 2026-11-11): too weak / too deep in maroon, too strong / too shallow or diluted in warm gray.
+# Smallest ΔE among the five colors is 27.6 under deuteranopia, protanopia and tritanopia (Machado 2009, CIELAB).
+BRACKET_COLOR = {"weak": "#7A1E2E", "strong": "#A89F91"}
+BRACKET_EPS = (0.05, 0.5)                                   # the ends of the stage f sweep
 BRACKET_LS = "-"
 DIVERGING_CMAP = "coolwarm"                                 # maps of δ_a and δ_S
 REGIME_COLOR = ["#7C3AED", "#D97706", "#0F766E"]            # cascade regimes (b, c, d)

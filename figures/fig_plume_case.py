@@ -5,7 +5,13 @@ the lowest pressure level (LPL) with the mixed-layer MSE h_ML and are drawn up t
 crossing of h*. ε = 0 is the undilute parcel. The ε values and colors are style.EPS_SHOWN / EPS_COLOR, the
 same as in the pooled plume-top figure, so the two read together.
 
-Default (since 2026-11-10): the column of Fig. 1b itself, the wet-bulb extreme of 1986 at 38.75°N 116.25°E
+Default (since 2026-11-11): a mean profile, so h* is smooth through the band: the composite of the regime of
+Fig. 7 (fig_plume_schematic.REGIME, the tropics with a moister free troposphere, whose h*500 range holds Fig. 1b's
+event) in the RH bin of Fig. 1b (COMPOSITE_BIN, 75–80 %), from fig_plume_schematic's composites
+(--schematic-cache for a local cache, else the casc files on Casper). The brackets are the ends of the stage f
+sweep (style.BRACKET_EPS), so panel (b) of fig_plume_tops shows the same five rates in the same colors.
+Rates outside the plausible family are drawn thinner, end in a cross and are labeled at their end.
+--column switches to the single column of Fig. 1b itself, the wet-bulb extreme of 1986 at 38.75°N 116.25°E
 on ERA5 model levels, read from fig_example_profiles' cache (<out>/example_profiles_cache.npz, written when
 make_all runs that figure first; --cache points elsewhere). The plume starts from Fig. 1's h_ML at the LPL,
 so δ_a here is the δ_a of Fig. 1b. Without the cache, or with --pressure-levels, it falls back to the
@@ -33,6 +39,8 @@ REPO = Path(__file__).resolve().parents[1]
 EPS = (0.0,) + tuple(style.EPS_SHOWN)
 TARGET = (38.75, 116.25)          # Fig. 1's point (fig_example_profiles.TARGET); was (39.9, 116.4) until 2026-11-10
 CACHE_NAME = "example_profiles_cache.npz"
+COMPOSITE_BIN = (0.75, 0.8)
+SOURCES = ("composite", "column", "pressure")
 PICK = dict(radius_deg=6.0, p_top_range=(250.0, 800.0))
 # Bracketing plumes outside the plausible family: the largest weak ε whose top is above 400 hPa
 # (too deep) and the smallest strong ε that stalls below 600 hPa (too shallow or diluted out).
@@ -89,6 +97,25 @@ def h_star_500(col):
     return np.array([np.interp(np.log(500.0), lv, row) for row in np.atleast_2d(col["h_sat"])])
 
 
+def from_composite(years=None, schematic_cache=None, rh_bin=COMPOSITE_BIN):
+    """The regime composite of Fig. 7 in one RH bin, as the (1, ...) dict panel() takes, plus its label."""
+    import fig_plume_schematic as S
+    if schematic_cache:
+        levels, comps, years_label, src = S.from_cache(schematic_cache)
+    else:
+        (levels, comps, years_label), src = S.from_regime(years), S.source_name()
+    b = min(comps, key=lambda k: abs(k[0] - rh_bin[0]) + abs(k[1] - rh_bin[1]))
+    c = comps[b]
+    one = dict(levels=np.asarray(levels, float), h=np.asarray(c["MSE"], float)[None],
+               h_sat=np.asarray(c["MSE_sat"], float)[None], phi=np.asarray(c["Z"], float)[None],
+               h0=np.array([float(c["h_LPL"])]), p0=np.array([float(c["p_LPL"])]),
+               p_lcl=np.array([float(c.get("p_LCL", np.nan))]), rh=np.array([0.5 * (b[0] + b[1])]),
+               lat=np.array([np.nan]), lon=np.array([np.nan]), in_mask=np.array([True]))
+    label = (f"mean profile, {src}, RH {100 * b[0]:.0f}–{100 * b[1]:.0f}% ({int(c['n']):,} events, "
+             f"{years_label})")
+    return one, label
+
+
 def from_model_levels(cache, event="M"):
     """One column of Fig. 1 on model levels, as the (1, ...) dict panel() takes, plus its label."""
     z = np.load(cache)
@@ -142,9 +169,8 @@ def brackets(one, window=(400.0, 600.0), margin=50.0):
 def panel(ax, one, label, weak=None, strong=None, ylim_bottom=None):
     """Draw the case on ax; returns (legend handles, facts). one: a single column as (1, ...) arrays.
     weak / strong: bracketing ε outside the plausible family (default: chosen by brackets())."""
-    if weak is None or strong is None:
-        w, s_ = brackets(one)
-        weak, strong = weak if weak is not None else w, strong if strong is not None else s_
+    weak = style.BRACKET_EPS[0] if weak is None else weak
+    strong = style.BRACKET_EPS[1] if strong is None else strong
     shown = [e for e in (0.0, weak) + tuple(style.EPS_SHOWN) + (strong,) if e is not None]
     cols, res = tops(one, shown)
     p = cols.p[0]
@@ -166,7 +192,7 @@ def panel(ax, one, label, weak=None, strong=None, ylim_bottom=None):
         h_p = r["h_p"][0]
         role = "weak" if e == weak else "strong" if e == strong else None
         if role:
-            col, ls, lw = BRACKET_STYLE[role]["color"], BRACKET_STYLE[role]["ls"], 1.6
+            col, ls, lw = BRACKET_STYLE[role]["color"], BRACKET_STYLE[role]["ls"], 1.3
         else:
             col = style.EPS_COLOR[e]
             lw, ls = (1.4, ":") if e == 0 else (2.0, "-")
@@ -180,14 +206,26 @@ def panel(ax, one, label, weak=None, strong=None, ylim_bottom=None):
         else:                                                   # diluted out: stop at closest approach to h*
             gap = np.where(p <= p_lcl, h_sat - h_p, np.inf)
             top, end, where = np.nan, float(p[int(np.argmin(gap))]), "diluted out"
-        ax.plot(np.where(p >= end, h_p, np.nan), p, color=col, lw=lw, ls=ls, zorder=4)
+        on = p >= end
+        ax.plot(np.where(on, h_p, np.nan), p, color=col, lw=lw, ls=ls, zorder=4 if not role else 3.5)
         x_end = np.interp(np.log(end), np.log(p[::-1]), h_p[::-1])
-        if e and np.isfinite(top):
+        if e and not role:
             ax.plot(x_end, end, "o", color=col, ms=5.5, mec="white", mew=0.8, zorder=5)
-        elif e:
-            ax.plot(x_end, end, "x", color=col, ms=5.5, mew=1.6, zorder=5)
+        elif e:                                                  # outside the plausible range: cross + label
+            ax.plot(x_end, end, "X", color=col, ms=6.5, mec="white", mew=0.6, zorder=5)
+            bad = "too deep" if (np.isfinite(top) and top < 400) or r["at_top"][0] else (
+                "diluted out" if not np.isfinite(top) else "too shallow")
+            ax.annotate(bad, (x_end, end), xytext=(6, 0), textcoords="offset points", fontsize=7, color=col,
+                        fontweight="bold", va="center", ha="left", zorder=6,
+                        bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.85))
+        if e:                                                    # arrowhead past the middle of the ascent: plumes rise
+            k = np.nonzero(on)[0]
+            j = k[int(0.6 * (len(k) - 1))]
+            ax.annotate("", xy=(h_p[j + 2], p[j + 2]), xytext=(h_p[j - 2], p[j - 2]), zorder=5,
+                        arrowprops=dict(arrowstyle="-|>,head_length=0.6,head_width=0.3", color=col, lw=1.0,
+                                        mutation_scale=12 if not role else 10, shrinkA=0, shrinkB=0))
         name = "undilute ($\\varepsilon = 0$)" if e == 0 else f"$\\varepsilon = {e:g}$ km$^{{-1}}$"
-        mk = None if e == 0 else ("o" if np.isfinite(top) else "x")
+        mk = None if e == 0 else ("o" if not role else "X")
         handles.append(Line2D([0], [0], color=col, lw=lw, ls=ls, marker=mk, ms=4.5, label=f"{name}: {where}"))
         facts[f"ε={e:g}{' (' + role + ' bracket)' if role else ''}"] = where
     if h0 > hs500:                                              # δ_a = h_ML − h*500, as in Fig. 1
@@ -195,10 +233,11 @@ def panel(ax, one, label, weak=None, strong=None, ylim_bottom=None):
                     arrowprops=dict(arrowstyle="<->", color="k", lw=0.9, shrinkA=0, shrinkB=0), zorder=6)
         ax.text(0.5 * (h0 + hs500), 492, r"$\delta_a$", ha="center", va="bottom", fontsize=8.5, zorder=6)
     ax.plot(h0, p0, "s", color="k", ms=4.5, zorder=6)
-    ax.annotate("$h_{ML}$", (h0, p0), xytext=(-5, 4), textcoords="offset points", fontsize=8, ha="right",
+    ax.annotate("$h_{ML}$", (h0, p0), xytext=(5, 2), textcoords="offset points", fontsize=8, ha="left",
                 va="bottom")
-    ax.axhline(p_lcl, color="#6B7280", lw=0.8, ls=(0, (1, 2)), zorder=1)
-    ax.text(0.98, p_lcl, "LCL", transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=7,
+    if np.isfinite(p_lcl):
+        ax.axhline(p_lcl, color="#6B7280", lw=0.8, ls=(0, (1, 2)), zorder=1)
+        ax.text(0.98, p_lcl, "LCL", transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=7,
             color="#4B5563")
     upper = p >= 150
     lo_x = np.nanmin(h_env[upper]) - 2
@@ -221,8 +260,15 @@ def draw(one, out_dir, label, weak=None, strong=None):
     return {"path": path, "title": "Plume Case", "facts": facts, "script": "figures/fig_plume_case.py"}
 
 
-def case(out_dir, year=1986, event="M", target=TARGET, pick=False, cache=None, pressure_levels=False):
-    """(one, label): Fig. 1's model-level column when its cache exists, else the pressure-level column."""
+def case(out_dir, year=1986, event="M", target=TARGET, pick=False, cache=None, pressure_levels=False,
+         source="composite", years=None, schematic_cache=None):
+    """(one, label): the regime composite (default), Fig. 1's model-level column ("column", from its cache),
+    or the pressure-level column ("pressure", also the fallback without the cache)."""
+    if source == "composite" and not (pressure_levels or pick):
+        try:
+            return from_composite(years, schematic_cache)
+        except Exception as err:                                 # noqa: BLE001  no casc files (e.g. the toy test)
+            print(f"note: no regime composite ({type(err).__name__}: {err}); drawing the single column")
     cache = Path(cache) if cache else Path(out_dir) / CACHE_NAME
     if not (pressure_levels or pick) and cache.exists():
         return from_model_levels(cache, event)
@@ -236,8 +282,8 @@ def case(out_dir, year=1986, event="M", target=TARGET, pick=False, cache=None, p
 
 
 def make(out_dir, years=None, weighted=False, year=1986, event="M", target=TARGET, pick=False,
-         weak=None, strong=None, cache=None, pressure_levels=False):
-    one, label = case(out_dir, year, event, target, pick, cache, pressure_levels)
+         weak=None, strong=None, cache=None, pressure_levels=False, source="composite", schematic_cache=None):
+    one, label = case(out_dir, year, event, target, pick, cache, pressure_levels, source, years, schematic_cache)
     return [draw(one, out_dir, label, weak, strong)]
 
 
@@ -249,13 +295,17 @@ if __name__ == "__main__":
     ap.add_argument("--lon", type=float, default=TARGET[1])
     ap.add_argument("--cache", help="Fig. 1 cache (default <out>/example_profiles_cache.npz)")
     ap.add_argument("--pressure-levels", action="store_true", help="pipeline pressure-level column instead")
+    ap.add_argument("--column", dest="source", action="store_const", const="column", default="composite",
+                    help="Fig. 1b's single model-level column instead of the regime composite")
+    ap.add_argument("--schematic-cache", help="composite cache of fig_plume_schematic (works without Casper)")
     ap.add_argument("--pick", action="store_true", help="nearest clean example instead of the nearest point")
     ap.add_argument("--weak", type=float, help="weak bracketing ε (default: largest that tops above 400 hPa)")
     ap.add_argument("--strong", type=float, help="strong bracketing ε (default: smallest that stalls below 600 hPa)")
     ap.add_argument("--out", default=str(REPO / "runs" / "figs"))
     a = ap.parse_args()
     for item in make(Path(a.out), year=a.year, event=a.event, target=(a.lat, a.lon), pick=a.pick,
-                     weak=a.weak, strong=a.strong, cache=a.cache, pressure_levels=a.pressure_levels):
+                     weak=a.weak, strong=a.strong, cache=a.cache, pressure_levels=a.pressure_levels,
+                     source=a.source, schematic_cache=a.schematic_cache):
         print(f"Wrote {item['path']}")
         for k, v in item["facts"].items():
             print(f"  {k}: {v}")

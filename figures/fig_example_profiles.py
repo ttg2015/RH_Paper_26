@@ -20,6 +20,14 @@ Model levels: RDA d633006 e5.oper.an.ml, 6-hour files per variable (T, Q, SP) on
 137 levels with hybrid coefficients a/b; surface geopotential from the d633006 invariant file. The point is
 the model-grid point nearest the target; the pipeline values come from the nearest 0.25° point.
 
+Drawn layers (2026-11-11, chosen for the story, not the pipeline's definition): the mixed-layer top is set
+per event by FIG_ML_TOP. "mixed" is the top of the visibly well-mixed segment, the first level above the
+surface layer where h has dropped FIG_H_TOL below its value at the surface-layer top (T event: about
+825 hPa, where the θv/LCL rule gave 723 hPa); "lcl" is the LCL of LPL air. The drawn h_ML is h at the
+surface-layer top on the model levels, not the pipeline's lowest-pressure-level value, which in the
+wet-bulb event sits about 2 m above the ground. Facts report both. A |δ_a| below FIG_DA_SMALL is
+written "δ_a ≈ 0" instead of an arrow that cannot be seen.
+
 Each run on Casper writes <out>/example_profiles_cache.npz, which fig_wbt_increase.py reads for its dots
 and which --cache redraws anywhere.
     python figures/fig_example_profiles.py [--year 1986] [--lat 38.75 --lon 116.25] [--cache F] [--out DIR]
@@ -47,6 +55,9 @@ RD = 287.06                         # J/kg/K (IFS value, for the geopotential on
 THV_EXCESS = 0.5                    # K, θv parcel method for the mixed-layer top
 SL_FRACTION = 0.10                  # surface layer = lowest 10 % of the mixed layer
 LABEL_EXCESS = True
+FIG_ML_TOP = {"T": "mixed", "M": "lcl"}
+FIG_H_TOL = 1.5                     # kJ/kg drop that ends the well-mixed segment ("mixed")
+FIG_DA_SMALL = 1.0                  # kJ/kg: below this δ_a is labeled "≈ 0"
 EVENT_TITLE = {"T": "Temperature-extreme event", "M": "Wet-bulb-extreme event"}
 ML_SHADE, SL_SHADE = "#DCEAF6", "#C9CED3"
 H500_COLOR, HML_COLOR, H2M_COLOR = "#7F1D1D", "#4A7FB0", "#2E8B57"
@@ -167,6 +178,24 @@ def finish(col):
     return col
 
 
+def figure_layers(col, event):
+    """The drawn layers: (p_ml_top, p_sl_top, h_ml) for the figure (see the module notes)."""
+    p, h = np.asarray(col["p_ml"], float), np.asarray(col["h_ml_prof"], float)
+    o = np.argsort(p)[::-1]                                          # surface upward
+    p_up, h_up = p[o], h[o]
+    p_sfc = float(col["p_sfc"])
+    if FIG_ML_TOP.get(event) == "mixed":
+        p_sl0 = p_sfc - SL_FRACTION * (p_sfc - float(col["p_ml_top"]))      # first guess of the SL top
+        h0 = interp_p(p, h, p_sl0)
+        above = (p_up < p_sl0) & (h_up < h0 - FIG_H_TOL)
+        k = int(np.argmax(above)) if above.any() else len(p_up) - 1
+        p_top = float(np.exp(np.interp(h0 - FIG_H_TOL, [h_up[k], h_up[k - 1]], [np.log(p_up[k]), np.log(p_up[k - 1])])))
+    else:
+        p_top = float(col["p_lcl"]) if np.isfinite(col["p_lcl"]) else float(col["p_ml_top"])
+    p_sl = p_sfc - SL_FRACTION * (p_sfc - p_top)
+    return p_top, p_sl, interp_p(p, h, p_sl)
+
+
 def excesses(col):
     hs = col["h500"] if "h500" in col else interp_p(col["levels"], col["h_sat"], 500.0)
     return {"h*500": hs, "delta_a": col["h_ml"] - hs, "delta_S": col["h_2m"] - col["h_ml"], "delta": col["h_2m"] - hs}
@@ -213,6 +242,8 @@ def harrow(ax, x0, x1, y, text, color="k"):
 
 def panel(ax, col, event, k):
     p, h, hs = col["p_ml"], col["h_ml_prof"], col["hs_ml_prof"]
+    p_ml_top, p_sl_top, h_ml = figure_layers(col, event)
+    col = dict(col, p_ml_top=p_ml_top, p_sl_top=p_sl_top, h_ml_lpl=col["h_ml"], h_ml=h_ml)
     ex = excesses(col)
     c = style.EVENT_COLOR[event]
     xlo = np.nanmin(h[p >= 300.0]) - 1.5
@@ -251,13 +282,19 @@ def panel(ax, col, event, k):
     # the excesses
     if LABEL_EXCESS:
         harrow(ax, col["h_ml"], col["h_2m"], col["p_sl_top"] - 6, r"$\delta_S$")
-        harrow(ax, ex["h*500"], col["h_ml"], 0.5 * (col["p_ml_top"] + col["p_sl_top"]) - 4, r"$\delta_a$")
+        y_a = 0.5 * (col["p_ml_top"] + col["p_sl_top"]) - 4
+        if abs(ex["delta_a"]) >= FIG_DA_SMALL:
+            harrow(ax, ex["h*500"], col["h_ml"], y_a, r"$\delta_a$")
+        else:                                                    # too small for an arrow
+            ax.text(max(ex["h*500"], col["h_ml"]) + 0.5, y_a, r"$\delta_a \approx 0$", ha="left", va="center",
+                    fontsize=9.5, zorder=7)
     ax.set(xlim=(xlo, xhi), ylim=(p_bot, 100), xlabel="MSE " + style.KJ)
     ax.set_yticks(np.arange(100, 1001, 100))
     when = np.datetime64(col["time"], "h").astype(object) if col.get("time") else None
     ax.set_title(f"{EVENT_TITLE[event]}" + (f"\n{when:%Y-%m-%d %H}Z" if when else ""), fontsize=10.5,
                  fontweight="bold")
     style.panel_letter(ax, k)
+    ex.update(p_ml_top=p_ml_top, p_sl_top=p_sl_top, h_ml=h_ml)
     return ex
 
 
@@ -270,10 +307,11 @@ def draw(cols, year, out_dir):
         c = cols[e]
         facts[f"{e} event"] = (f"{c.get('time', '?')}; model point {c['lat_ml']:.2f}°N {c['lon_ml']:.2f}°E "
                                f"(pipeline point {c['lat']:.2f}°N {c['lon']:.2f}°E); h_2m {c['h_2m']:.1f}, "
-                               f"h_ML {c['h_ml']:.1f} at {c['p_lpl']:.0f} hPa (pressure-level product "
+                               f"h_ML drawn {ex['h_ml']:.1f} at the SL top {ex['p_sl_top']:.0f} hPa (pipeline LPL "
+                               f"{c['h_ml']:.1f} at {c['p_lpl']:.0f} hPa, pressure-level product "
                                f"{c['h_LPL_pl']:.1f}), h*500 {ex['h*500']:.1f}; δ {ex['delta']:+.1f}, "
                                f"δ_S {ex['delta_S']:+.1f}, δ_a {ex['delta_a']:+.1f} kJ/kg; RH {100 * c['rh']:.0f}%, "
-                               f"T2m {c['T2m'] - 273.15:.1f} °C; ML top {c['p_ml_top']:.0f} hPa (LCL "
+                               f"T2m {c['T2m'] - 273.15:.1f} °C; ML top drawn {ex['p_ml_top']:.0f} hPa ({FIG_ML_TOP.get(e)}; LCL "
                                f"{c['p_lcl']:.0f}); lowest model level minus h_2m "
                                f"{np.asarray(c['h_ml_prof'])[-1] - c['h_2m']:+.1f} kJ/kg")
     axs[0].set_ylabel("Pressure [hPa]")

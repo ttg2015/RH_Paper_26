@@ -226,7 +226,7 @@ def annotate(ax, levels, lo, hi, topL, topH, cL, cH, eH, pg):
     e_hi, c_hi = at_p(eH), at_p(cH)
     if np.isfinite(e_hi) and np.isfinite(c_hi):
         ax.annotate("", xy=(c_hi, CONTRAST_P), xytext=(e_hi, CONTRAST_P), arrowprops=arrow, zorder=7)
-        ax.text(0.5 * (e_hi + c_hi), CONTRAST_P - 12, "(iii) increasing contrast", ha="center", va="bottom", **ann)
+        ax.text(e_hi - 0.6, CONTRAST_P + 14, "(iii) increasing\ncontrast", ha="right", va="top", **ann)   # empty space left of and below the arrow
     xs = []
     for top, c_, col in ((topL, cL, COLOR_LOW), (topH, cH, COLOR_HIGH)):   # (ii) the tops
         if np.isfinite(top):

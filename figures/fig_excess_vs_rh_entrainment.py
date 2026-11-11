@@ -29,7 +29,7 @@ def fit_k(x, m, n, rh0, window, form):
 
 
 def draw_model(ax, axr, H, ex, ey):
-    """Mean δ_a dots, the fitted log and linear models, the fit window, and residuals on axr.
+    """Mean δ_a dots, the fitted log and linear models, the fit window, and residuals on axr (None: no residuals).
     Returns (rh0 of the mean curve, facts)."""
     x, m, n = mean_curve(H["T"] + H["M"], ex, ey)
     rh0 = FD.zero_crossing(x[::-1], m[::-1])
@@ -48,7 +48,8 @@ def draw_model(ax, axr, H, ex, ey):
         model = k * (np.log(rh0 / xs) if form == "log" else 1 - xs / rh0)
         ax.plot(xs, model, color=color, ls=ls, lw=2, label=label, zorder=6)
         pred = k * (np.log(rh0 / x) if form == "log" else 1 - x / rh0)
-        axr.plot(x, m - pred, color=color, ls=ls, lw=1.5)
+        if axr is not None:
+            axr.plot(x, m - pred, color=color, ls=ls, lw=1.5)
         ok = np.isfinite(m) & (x >= WINDOW[0]) & (x <= WINDOW[1])
         rmse = np.sqrt(np.average((m[ok] - pred[ok]) ** 2, weights=n[ok]))
         facts[f"{form} fit"] = f"Γ_h·C = {-k:.2f} kJ/kg → Γ_h = {-k / C_KM:.2f} kJ/kg/km (C = {C_KM:g} km), RMSE {rmse:.2f} kJ/kg in window"
@@ -56,9 +57,11 @@ def draw_model(ax, axr, H, ex, ey):
             xe, me, ne = mean_curve(H[e], ex, ey)
             facts[f"{form} fit {e} only"] = f"Γ_h·C = {-fit_k(xe, me, ne, rh0, WINDOW, form):.2f} kJ/kg (RH0 pooled)"
     for a in (ax, axr):                                           # the fit window, in the band style
-        style.band(a, *WINDOW, edges=True, axis="x")
-    axr.axhline(0, color="k", lw=0.8)
-    axr.set(ylabel="mean − model\n" + style.KJ, ylim=(-4, 4))
+        if a is not None:
+            style.band(a, *WINDOW, edges=True, axis="x")
+    if axr is not None:
+        axr.axhline(0, color="k", lw=0.8)
+        axr.set(ylabel="mean − model\n" + style.KJ, ylim=(-4, 4))
     return rh0, facts
 
 

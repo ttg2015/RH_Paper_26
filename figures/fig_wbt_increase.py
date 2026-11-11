@@ -93,6 +93,9 @@ def make(out_dir, years=None, weighted=True, dots=True):
     fig.colorbar(cf, ax=ax, ticks=np.arange(0.0, Z.max() + 0.5, 2.0)).set_label(r"WBT increase $\Delta T_w$ [K]")
     dot_facts = {}
     for e, tw0, d, tw2m in (beijing_dots(out_dir) if dots else []):
+        guide = [pe.withStroke(linewidth=2.0, foreground="white", alpha=0.4)]       # readable on dark and light
+        ax.plot([tw0, tw0, Tw_C[0]], [0.0, d, d], color=style.EVENT_COLOR[e], lw=1.1, ls=(0, (3, 2)), zorder=5,
+                path_effects=guide)                                                 # guides to both axes
         ax.plot(tw0, d, "o", color=style.EVENT_COLOR[e], mec="white", mew=1.0, ms=7, zorder=6, clip_on=False)
         ax.annotate(style.EVENT_SHORT[e], (tw0, d), xytext=(5, 4), textcoords="offset points", fontsize=7,
                     color="white", zorder=6, path_effects=[pe.withStroke(linewidth=1.5, foreground="0.15")])
