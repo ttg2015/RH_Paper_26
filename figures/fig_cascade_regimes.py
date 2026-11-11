@@ -228,7 +228,7 @@ def cascade_legend(ax, guide=False):
                        Line2D([0], [0], ls="", marker="o", mfc="w", mec="k", label="LCL")]
               + ([Line2D([0], [0], color=GUIDE_COLOR, lw=1.6, label=rf"$\Gamma_h$ = {GAMMA_GUIDE:g} kJ/kg/km")]
                  if guide else []),
-              loc="upper left", bbox_to_anchor=(0.0, 0.9), fontsize=7, handlelength=1.6, frameon=True,
+              loc="upper left", bbox_to_anchor=(0.0, 0.87), fontsize=7, handlelength=1.6, frameon=True,
               framealpha=0.9, edgecolor="none")   # under the n label, left of the profiles (was upper right, on them)
 
 
