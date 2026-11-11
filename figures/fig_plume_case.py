@@ -215,8 +215,10 @@ def panel(ax, one, label, weak=None, strong=None, ylim_bottom=None):
             ax.plot(x_end, end, "X", color=col, ms=6.5, mec="white", mew=0.6, zorder=5)
             bad = "too deep" if (np.isfinite(top) and top < 400) or r["at_top"][0] else (
                 "diluted out" if not np.isfinite(top) else "too shallow")
-            ax.annotate(bad, (x_end, end), xytext=(6, 0), textcoords="offset points", fontsize=7, color=col,
-                        fontweight="bold", va="center", ha="left", zorder=6,
+            left = bad == "diluted out"                          # diluted plumes end among the others: label to the left
+            ax.annotate(bad.replace(" ", "\n") if left else bad, (x_end, end), xytext=(-6 if left else 6, 0),
+                        textcoords="offset points", fontsize=7, color=col, fontweight="bold", va="center",
+                        ha="right" if left else "left", zorder=6, linespacing=0.95,
                         bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.85))
         if e:                                                    # arrowhead past the middle of the ascent: plumes rise
             k = np.nonzero(on)[0]
