@@ -119,7 +119,8 @@ class TestFigData(unittest.TestCase):
                 "fig_example_profiles")
         self.assertEqual(index.count("failed</h2>"), sum(index.count(f"{m} failed</h2>") for m in casc))
         for name in ("excess_histograms", "excess_histograms_unweighted", "weighting_check", "surface_layer",
-                     "excess_maps", "excess_vs_rh", "excess_vs_rh_entrainment", "lcl_binned",
+                     "excess_maps", "excess_vs_rh", "excess_vs_rh_model", "excess_vs_rh_entrainment", "plume_case",
+                     "ztop_pooled", "plume_tops", "lcl_binned",
                      "convective_maps", "cascade", "excess_vs_zlcl", "wbt_increase", "ztop_fractions",
                      "delta_s_ft_vs_rh", "box_hits_tp_ml", "box_hits_locations",
                      "strike_points", "strike_map", "collapse_rh", "excess_histograms_rh",

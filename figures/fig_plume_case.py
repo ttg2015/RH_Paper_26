@@ -5,11 +5,16 @@ the lowest pressure level (LPL) with the mixed-layer MSE h_ML and are drawn up t
 crossing of h*. ε = 0 is the undilute parcel. The ε values and colors are style.EPS_SHOWN / EPS_COLOR, the
 same as in the pooled plume-top figure, so the two read together.
 
-Default: the grid point nearest Beijing in 1986, wet-bulb (MSE) extreme, as in Fig. 1b. With --pick, the
-event nearest the target whose plumes give a clean example: δ_a > 0, and at every shown ε one buoyant
-layer with a top between 250 and 800 hPa that descends as ε grows.
+Default (since 2026-11-10): the column of Fig. 1b itself, the wet-bulb extreme of 1986 at 38.75°N 116.25°E
+on ERA5 model levels, read from fig_example_profiles' cache (<out>/example_profiles_cache.npz, written when
+make_all runs that figure first; --cache points elsewhere). The plume starts from Fig. 1's h_ML at the LPL,
+so δ_a here is the δ_a of Fig. 1b. Without the cache, or with --pressure-levels, it falls back to the
+pipeline's pressure-level column at the same point. With --pick (pressure levels), the event nearest the
+target whose plumes give a clean example: δ_a > 0, and at every shown ε one buoyant layer with a top
+between 250 and 800 hPa that descends as ε grows.
 
-    python figures/fig_plume_case.py [--year 1986] [--event M] [--lat 39.9 --lon 116.4] [--pick]
+The drawing is panel(); fig_plume_tops.py puts it beside the pooled plume tops (old Figs 6 + 7).
+    python figures/fig_plume_case.py [--cache F] [--pressure-levels [--year 1986] [--event M] [--lat --lon] [--pick]]
 """
 import argparse
 from pathlib import Path
@@ -26,7 +31,8 @@ from tpl_mll import ztop
 
 REPO = Path(__file__).resolve().parents[1]
 EPS = (0.0,) + tuple(style.EPS_SHOWN)
-BEIJING = (39.9, 116.4)
+TARGET = (38.75, 116.25)          # Fig. 1's point (fig_example_profiles.TARGET); was (39.9, 116.4) until 2026-11-10
+CACHE_NAME = "example_profiles_cache.npz"
 PICK = dict(radius_deg=6.0, p_top_range=(250.0, 800.0))
 # Bracketing plumes outside the plausible family: the largest weak ε whose top is above 400 hPa
 # (too deep) and the smallest strong ε that stalls below 600 hPa (too shallow or diluted out).
@@ -78,8 +84,25 @@ def tops(col, eps=EPS):
 
 
 def h_star_500(col):
-    k = int(np.argmin(abs(col["levels"] - 500.0)))
-    return col["h_sat"][..., k]
+    """h* at 500 hPa, interpolated in ln p (model levels do not include 500 hPa)."""
+    lv = np.log(col["levels"])
+    return np.array([np.interp(np.log(500.0), lv, row) for row in np.atleast_2d(col["h_sat"])])
+
+
+def from_model_levels(cache, event="M"):
+    """One column of Fig. 1 on model levels, as the (1, ...) dict panel() takes, plus its label."""
+    z = np.load(cache)
+    g = lambda k: z[f"{event}_{k}"]
+    p = np.asarray(g("levels"), float)                        # ascending hPa, 137 levels
+    o = np.argsort(p)
+    one = dict(levels=p[o], h=g("h")[o][None], h_sat=g("h_sat")[o][None],
+               phi=(g("phi_ml")[o] / 1000.0)[None],           # J/kg → kJ/kg, as the pipeline's Z
+               h0=np.array([float(g("h_ml"))]), p0=np.array([float(g("p_lpl"))]),
+               p_lcl=np.array([float(g("p_lcl"))]), rh=np.array([float(g("rh"))]),
+               lat=np.array([float(g("lat"))]), lon=np.array([float(g("lon"))]), in_mask=np.array([True]))
+    label = (f"{'wet-bulb' if event == 'M' else 'temperature'} extreme {str(g('time'))}Z, "
+             f"{one['lat'][0]:.2f}°N {one['lon'][0]:.2f}°E, model levels (Fig. 1 cache), RH {one['rh'][0]:.2f}")
+    return one, label
 
 
 def choose(col, target, pick):
@@ -116,10 +139,9 @@ def brackets(one, window=(400.0, 600.0), margin=50.0):
     return weak, strong
 
 
-def draw(one, out_dir, label, weak=None, strong=None):
-    """one: a single column as (1, ...) arrays plus scalars; returns the item dict for make_all.
+def panel(ax, one, label, weak=None, strong=None, ylim_bottom=None):
+    """Draw the case on ax; returns (legend handles, facts). one: a single column as (1, ...) arrays.
     weak / strong: bracketing ε outside the plausible family (default: chosen by brackets())."""
-    style.apply()
     if weak is None or strong is None:
         w, s_ = brackets(one)
         weak, strong = weak if weak is not None else w, strong if strong is not None else s_
@@ -130,11 +152,11 @@ def draw(one, out_dir, label, weak=None, strong=None):
     h0, p0, p_lcl = float(one["h0"][0]), float(one["p0"][0]), float(one["p_lcl"][0])
     hs500 = float(h_star_500(one)[0])
 
-    fig, ax = plt.subplots(figsize=(3.8, 5.0))
     style.paper_axes(ax)
     style.band(ax, label="400–600 hPa")
-    ax.plot(h_env, p, color="k", lw=2.0, zorder=3)
-    ax.plot(h_sat, p, color="k", lw=1.6, ls="--", zorder=3)
+    keep = p >= 150                                             # the stratosphere only stretches the x axis
+    ax.plot(np.where(keep, h_env, np.nan), p, color="k", lw=2.0, zorder=3)
+    ax.plot(np.where(keep, h_sat, np.nan), p, color="k", lw=1.6, ls="--", zorder=3)
     facts = {"event": label, "h_ML": f"{h0:.1f} kJ/kg at {p0:.0f} hPa",
              "δ_a = h_ML − h*500": f"{h0 - hs500:+.1f} kJ/kg", "LCL of LPL air": f"{p_lcl:.0f} hPa"}
     handles = [Line2D([0], [0], color="k", lw=2.0, label="environment $h$"),
@@ -181,24 +203,41 @@ def draw(one, out_dir, label, weak=None, strong=None):
     upper = p >= 150
     lo_x = np.nanmin(h_env[upper]) - 2
     hi_x = max(h0, hs500) + 6
-    ax.set(xlim=(lo_x, hi_x), ylim=(p0 + 15, 150), xlabel="MSE " + style.KJ,
+    ax.set(xlim=(lo_x, hi_x), ylim=(ylim_bottom or p0 + 15, 150), xlabel="MSE " + style.KJ,
            ylabel="Pressure [hPa]")
     ax.set_yticks(np.arange(200, 1001, 100))
+    return handles, facts
+
+
+def draw(one, out_dir, label, weak=None, strong=None):
+    style.apply()
+    fig, ax = plt.subplots(figsize=(3.8, 5.0))
+    handles, facts = panel(ax, one, label, weak, strong)
     ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2,
               frameon=False, handlelength=2.0, columnspacing=1.0, labelspacing=0.35)
     fig.tight_layout()
-    return {"path": FD.save(fig, out_dir, "plume_case"), "title": "Plume Case", "facts": facts,
-            "script": "figures/fig_plume_case.py"}
+    path = FD.save(fig, out_dir, "plume_case")
+    plt.close(fig)
+    return {"path": path, "title": "Plume Case", "facts": facts, "script": "figures/fig_plume_case.py"}
 
 
-def make(out_dir, years=None, weighted=False, year=1986, event="M", target=BEIJING, pick=False,
-         weak=None, strong=None):
+def case(out_dir, year=1986, event="M", target=TARGET, pick=False, cache=None, pressure_levels=False):
+    """(one, label): Fig. 1's model-level column when its cache exists, else the pressure-level column."""
+    cache = Path(cache) if cache else Path(out_dir) / CACHE_NAME
+    if not (pressure_levels or pick) and cache.exists():
+        return from_model_levels(cache, event)
     col = columns(year, event)
     k = choose(col, target, pick)
     one = {key: (v if key == "levels" else v[k:k + 1]) for key, v in col.items()}
     lat, lon = float(one["lat"][0]), float(one["lon"][0])
     label = (f"{'wet-bulb' if event == 'M' else 'temperature'} extreme {year}, {lat:.2f}°N {lon:.2f}°E, "
-             f"RH {float(one['rh'][0]):.2f}{'' if one['in_mask'][0] else ' (outside analysis mask)'}")
+             f"pressure levels, RH {float(one['rh'][0]):.2f}{'' if one['in_mask'][0] else ' (outside analysis mask)'}")
+    return one, label
+
+
+def make(out_dir, years=None, weighted=False, year=1986, event="M", target=TARGET, pick=False,
+         weak=None, strong=None, cache=None, pressure_levels=False):
+    one, label = case(out_dir, year, event, target, pick, cache, pressure_levels)
     return [draw(one, out_dir, label, weak, strong)]
 
 
@@ -206,15 +245,17 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--year", type=int, default=1986)
     ap.add_argument("--event", choices=["T", "M"], default="M")
-    ap.add_argument("--lat", type=float, default=BEIJING[0])
-    ap.add_argument("--lon", type=float, default=BEIJING[1])
+    ap.add_argument("--lat", type=float, default=TARGET[0])
+    ap.add_argument("--lon", type=float, default=TARGET[1])
+    ap.add_argument("--cache", help="Fig. 1 cache (default <out>/example_profiles_cache.npz)")
+    ap.add_argument("--pressure-levels", action="store_true", help="pipeline pressure-level column instead")
     ap.add_argument("--pick", action="store_true", help="nearest clean example instead of the nearest point")
     ap.add_argument("--weak", type=float, help="weak bracketing ε (default: largest that tops above 400 hPa)")
     ap.add_argument("--strong", type=float, help="strong bracketing ε (default: smallest that stalls below 600 hPa)")
     ap.add_argument("--out", default=str(REPO / "runs" / "figs"))
     a = ap.parse_args()
     for item in make(Path(a.out), year=a.year, event=a.event, target=(a.lat, a.lon), pick=a.pick,
-                     weak=a.weak, strong=a.strong):
+                     weak=a.weak, strong=a.strong, cache=a.cache, pressure_levels=a.pressure_levels):
         print(f"Wrote {item['path']}")
         for k, v in item["facts"].items():
             print(f"  {k}: {v}")

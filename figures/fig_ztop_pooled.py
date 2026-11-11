@@ -48,10 +48,10 @@ def pooled(years, weighted=False):
     return d0.epsilon, h, cat, d0.edges["ptop"], d0.label()
 
 
-def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600.0)):
-    """eps (E,), h (E, P) top counts, cat (E, codes) category counts, pe (P+1,) pressure edges.
-    shown: ε to draw in color (default style.EPS_SHOWN); brackets: (weak, strong) ε in gray, or None."""
-    style.apply()
+def panel(ax, eps, h, cat, pe, shown=None, brackets=None, window=(400.0, 600.0)):
+    """Draw on ax; returns (legend handles, facts). fig_plume_tops.py uses it beside the plume case.
+    eps (E,), h (E, P) top counts, cat (E, codes) category counts, pe (P+1,) pressure edges.
+    shown: ε to draw in color (default SHOWN); brackets: (weak, strong) ε in maroon, or None."""
     shown = tuple(SHOWN if shown is None else shown)
     lo, hi = window
     total, stable, share = FD.unstable_counts(cat)
@@ -61,7 +61,6 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
         if abs(eps[k_of(e)] - e) > 1e-6:
             raise ValueError(f"ε = {e} not in the stage f sweep {list(eps)}")
 
-    fig, ax = plt.subplots(figsize=(3.8, 4.6))
     style.paper_axes(ax)
     style.band(ax, lo, hi, edges=False, label=f"{lo:g}–{hi:g} hPa")
 
@@ -94,10 +93,17 @@ def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600
     ax.set(ylim=(1000, 100), xlim=(0, 1.08 * xmax), xlabel=f"unstable events per {5 * P_COARSEN} hPa [%]",
            ylabel="plume top [hPa]")
     ax.set_yticks(np.arange(100, 1001, 100))
-    ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=1,
-              frameon=False, handlelength=2.2, labelspacing=0.35)
     facts["unstable events"] = f"{int(total[0]):,} of {int(total[0] + stable[0]):,} (T + M pooled)"
     facts["note"] = "triangles on the right axis mark each ε's median top (of plumes that top out)"
+    return handles, facts
+
+
+def draw(eps, h, cat, pe, out_dir, shown=None, brackets=None, window=(400.0, 600.0)):
+    style.apply()
+    fig, ax = plt.subplots(figsize=(3.8, 4.6))
+    handles, facts = panel(ax, eps, h, cat, pe, shown, brackets, window)
+    ax.legend(handles=handles, fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=1,
+              frameon=False, handlelength=2.2, labelspacing=0.35)
     fig.tight_layout()
     path = FD.save(fig, out_dir, "ztop_pooled")
     plt.close(fig)

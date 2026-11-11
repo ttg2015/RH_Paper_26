@@ -4,6 +4,9 @@ Port of Paper_Plots-2 cell 59 onto figure data: smoothed pooled density (purple)
 density contours, the 50 % / 75 % regions of T and M events, the mean δ_FT, stable/unstable
 labels and a count strip. Fixes: the combined count is T + M counts (E09), and RH0 is found
 by interpolating the mean's zero crossing (E09/E11).
+Also writes excess_vs_rh_model (old Figs 5 + 11, 2026-11-10): the same plane with the log-RH model and its
+linear form fitted to the mean (fig_excess_vs_rh_entrainment.draw_model), the fit window, and a residual
+strip below.
     python figures/fig_excess_vs_rh.py [--years 1980-2019] [--unweighted]
 """
 import matplotlib
@@ -65,15 +68,30 @@ def draw_plane(ax, ex, ey, H, labels=True):
 def make(out_dir, years=None, weighted=True):
     style.apply()
     data, ex, ey, H = plane(years, weighted)
+    return [draw(data, ex, ey, H, out_dir, weighted, model=m) for m in (False, True)]
+
+
+def draw(data, ex, ey, H, out_dir, weighted=False, model=False):
     d0 = data["T"]
-    fig = plt.figure(figsize=(3.7, 4.0))
-    gs = fig.add_gridspec(2, 1, height_ratios=[1, 5], hspace=0.05)
+    if model:
+        fig = plt.figure(figsize=(3.7, 5.0))
+        gs = fig.add_gridspec(3, 1, height_ratios=[1, 5, 1.4], hspace=0.07)
+    else:
+        fig = plt.figure(figsize=(3.7, 4.0))
+        gs = fig.add_gridspec(2, 1, height_ratios=[1, 5], hspace=0.05)
     axc = fig.add_subplot(gs[0])
     ax = fig.add_subplot(gs[1], sharex=axc)
-    cf = draw_plane(ax, ex, ey, H)
+    cf = draw_plane(ax, ex, ey, H, labels=not model)
 
-    x, m, _ = mean_curve(H["T"] + H["M"], ex, ey)
-    ax.plot(x, m, color="gray", lw=1.5, marker=".", ms=6, alpha=0.9, zorder=5)
+    fit_facts = {}
+    if model:                                          # mean as dots, with the fitted models over it
+        import fig_excess_vs_rh_entrainment as ENT
+        axr = fig.add_subplot(gs[2], sharex=axc)
+        _, fit_facts = ENT.draw_model(ax, axr, H, ex, ey)
+        ax.tick_params(labelbottom=False)
+    else:
+        x, m, _ = mean_curve(H["T"] + H["M"], ex, ey)
+        ax.plot(x, m, color="gray", lw=1.5, marker=".", ms=6, alpha=0.9, zorder=5)
     rh0 = FD.rh0(data)                                 # unweighted, same number every figure uses
     if np.isfinite(rh0):
         ax.plot(rh0, 0, "o", ms=7, mfc="white", mec="k", zorder=6)
@@ -97,18 +115,26 @@ def make(out_dir, years=None, weighted=True):
     pos = ax.get_position()
     cb = fig.colorbar(cf, cax=fig.add_axes([pos.x1 + 0.01, pos.y0, 0.02, pos.height]))
     cb.set_label("events per bin [%]")
-    ax.legend(handles=[mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=style.EVENT_SHORT["T"]),
-                       mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=style.EVENT_SHORT["M"]),
-                       mlines.Line2D([], [], color="gray", lw=1.5, marker=".", ms=6,
-                                     label=r"Mean $\delta_{a}$")], loc="upper left", fontsize=6)
+    handles = [mlines.Line2D([], [], color=EVENT_LINE["T"], lw=2, label=style.EVENT_SHORT["T"]),
+               mlines.Line2D([], [], color=EVENT_LINE["M"], lw=2, label=style.EVENT_SHORT["M"]),
+               mlines.Line2D([], [], color="gray", lw=0 if model else 1.5, marker=".", ms=6,
+                             label=r"Mean $\delta_{a}$")]
+    if model:
+        handles += [h for h in ax.get_legend_handles_labels()[0] if h.get_label().startswith("$\\Gamma")]
+    ax.legend(handles=handles, loc="lower right" if model else "upper left", fontsize=6,   # lower right is empty (dry, unstable) framealpha=0.85 if model else None,
+              edgecolor="none" if model else None)
     ax.set(xlim=XRANGE, ylim=YRANGE, ylabel=r"$\delta_{a}$ " + style.KJ)
-    style.rh_percent(ax)
+    style.rh_percent(axr if model else ax)
     facts = {"RH0 (pooled mean crosses 0)": f"{rh0:.3f}", "years": d0.label(),
              "weighting": "cos(lat)" if weighted else "none",
              "bins": "0.5 % RH × 0.25 kJ/kg, smoothed σ = 2 % RH × 0.75 kJ/kg",
              "contours": "white: density; red/blue: 50 % and 75 % of T / M events"}
-    return [{"path": FD.save(fig, out_dir, "excess_vs_rh"), "title": "Excess vs RH", "facts": facts,
-             "script": "figures/fig_excess_vs_rh.py"}]
+    facts.update(fit_facts)
+    name = "excess_vs_rh_model" if model else "excess_vs_rh"
+    path = FD.save(fig, out_dir, name)
+    plt.close(fig)
+    return {"path": path, "title": "Excess vs RH + model (old Figs 5 + 11)" if model else "Excess vs RH",
+            "facts": facts, "script": "figures/fig_excess_vs_rh.py"}
 
 
 if __name__ == "__main__":

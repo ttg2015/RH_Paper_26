@@ -23,7 +23,7 @@ import figdata as FD          # noqa: E402
 FIGURES = ["fig_example_profiles", "fig_excess_hist", "fig_weighting_check", "fig_surface_layer", "fig_excess_maps",
            "fig_excess_vs_rh", "fig_excess_vs_rh_entrainment", "fig_delta_s_ft_vs_rh", "fig_rh_demo",
            "fig_plume_schematic", "fig_plume_case", "fig_lcl_binned", "fig_convective_maps", "fig_cascade", "fig_cascade_regimes", "fig_rh_composites", "fig_box_hits",
-           "fig_excess_vs_zlcl", "fig_wbt_increase", "fig_ztop_fractions", "fig_strike_points", "fig_ztop_pooled",
+           "fig_excess_vs_zlcl", "fig_wbt_increase", "fig_ztop_fractions", "fig_strike_points", "fig_ztop_pooled", "fig_plume_tops",
            "fig_collapse_rh", "fig_excess_hist_rh", "fig_strike_points_rh"]
 
 

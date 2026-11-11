@@ -9,7 +9,7 @@ The two bins are by default
 the driest bin from 30 % whose plume (ε = EPS) tops out, and one about GAP moister that also tops out, so
 both convect and the mixed-layer change is visible. Set RH_LOW / RH_HIGH to override.
 Each plume starts at the composite's LPL with its mean h_LPL and is drawn up to where it meets h*.
-Shading: the δ_a/ε area of the drier plume (gray) and its growth at higher RH (teal).
+Shading: the δ_a/ε area of the drier plume (light sand, its profile color) and its growth at higher RH (teal).
 
 The mixed-layer top is the kink of the three-segment fit (side_tests/cascade_tests.pw3, Appendix A), the
 top the eye reads off the profile. The bin's mean LCL sits above it (an upper limit, Appendix A); ML_TOP
@@ -49,7 +49,7 @@ RH_LOW = RH_HIGH = None        # e.g. (0.40, 0.45); None = choose automatically 
 SCAN = np.round(np.arange(0.30, 0.70, 0.05), 2)              # lower edges of the 5 % bins scanned
 GAP = 0.15                     # aim for the moister bin this far above the drier one
 COLOR_LOW, COLOR_HIGH = "#A07C45", "#005F73"                 # dry sand / moist teal: the ends of style.RH_CMAP, darkened
-SHADE_L, SHADE_H = "0.55", "#0A9396"                         # δ_a/ε at low RH (gray); its growth at high RH (teal)
+SHADE_L, SHADE_H = COLOR_LOW, "#0A9396"                      # δ_a/ε at low RH (sand, was gray to 2026-11-10); its growth (teal)
 MIN_N = 300                                                  # events per composite
 ANNOTATE = True                # the advisor's pathways: (i) lower ML top, (ii) top, (iii) ML–FT contrast
 ML_TOP = "kink"                # "kink" (the visible ML top, Appendix A), "lcl" (upper limit), "auto", "drop"
@@ -226,7 +226,7 @@ def annotate(ax, levels, lo, hi, topL, topH, cL, cH, eH, pg):
     e_hi, c_hi = at_p(eH), at_p(cH)
     if np.isfinite(e_hi) and np.isfinite(c_hi):
         ax.annotate("", xy=(c_hi, CONTRAST_P), xytext=(e_hi, CONTRAST_P), arrowprops=arrow, zorder=7)
-        ax.text(0.5 * (e_hi + c_hi), CONTRAST_P - 12, "(iii) contrast", ha="center", va="bottom", **ann)
+        ax.text(0.5 * (e_hi + c_hi), CONTRAST_P - 12, "(iii) increasing contrast", ha="center", va="bottom", **ann)
     xs = []
     for top, c_, col in ((topL, cL, COLOR_LOW), (topH, cH, COLOR_HIGH)):   # (ii) the tops
         if np.isfinite(top):
@@ -262,7 +262,7 @@ def draw(levels, comps, label, out_dir, src=""):
     cL, eL, cH, eH = at(pL, hpL), at(pL, envL), at(pH, hpH), at(pH, envH)
     below_L = pg >= (topL if np.isfinite(topL) else 1e9)
     below_H = pg >= (topH if np.isfinite(topH) else 1e9)
-    # extend the gray one grid row past the drier top, so it meets the teal without a white seam
+    # extend the sand one grid row past the drier top, so it meets the teal without a white seam
     fill_L = below_L | np.roll(below_L, 1)
     ax.fill_betweenx(pg, cL, eL, where=fill_L & (cL > eL), color=solid(SHADE_L, 0.18), lw=0)
     left = np.where(below_L, np.maximum(eH, cL), eH)
